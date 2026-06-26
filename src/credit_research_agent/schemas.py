@@ -233,6 +233,8 @@ class TraceStep(JsonModel):
     state: str
     timestamp: datetime = Field(default_factory=datetime.now)
     summary: Optional[str] = None
+    reasoning_summary: Optional[str] = None
+    decision_basis: List[str] = Field(default_factory=list)
     iteration: Optional[int] = None
     query: Optional[str] = None
     tools_called: List[str] = Field(default_factory=list)

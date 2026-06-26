@@ -82,14 +82,13 @@ Workpaper + Trace + Final Brief (M2, enhanced with LLM trace steps)
 
 **Deterministic Tools** (LLM calls these; outputs are deterministic):
 - `hybrid_retrieve(query)` → ranked chunks
-- `rerank(query, candidates, top_k)` → reranked chunks
 - `xbrl_fact_lookup(metric, year)` → NumericFact (XBRL)
-- `narrative_fact_lookup(metric, year, chunks)` → NumericFact (text)
 - `verify_numeric_claim(metric, old_year, new_year)` → VerificationResult
 - `calculate_change(old, new)` → {delta, pct_change, direction}
 - `query_memory(topic)` → {useful_sections, successful_queries, verified_metrics}
-- `write_workpaper(artifact_name, content)` → Path
+- `query_rewrite_helper(task, coverage_gaps)` → fallback query rewrite structure
 - `numeric_guardrail_check(brief_text, verified_facts)` → {blocked_claims, issues}
+- `write_workpaper(artifact_name, content)` → Path
 
 **Clear Separation**: 
 - LLM drives *what to do, when to do it, how to interpret results*
@@ -103,23 +102,23 @@ Workpaper + Trace + Final Brief (M2, enhanced with LLM trace steps)
 ### 2.1 High-Level ReAct Loop
 
 ```
-THOUGHT (LLM internal reasoning):
+INTERNAL REASONING (not stored verbatim):
   "What evidence do I have so far? What's missing? 
    Can I verify the claim, or should I retrieve more?"
 
 ACTION (LLM decides which tool to invoke):
   - If insufficient evidence → invoke hybrid_retrieve
   - If evidence present → invoke xbrl_fact_lookup or verify_numeric_claim
-  - If ready to write → invoke synthesize
-  - If critique needed → invoke critic
+  - If query needs improvement → use LLM query rewrite, with query_rewrite_helper fallback
+  - If ready to write → transition to LLM Synthesizer role (not a tool)
+  - If critique needed → transition to LLM Critic role + numeric_guardrail_check
 
 OBSERVATION (Tool result):
   - Retrieval returns chunks + citations
   - Verification returns status (verified/unsupported/low_confidence)
-  - Synthesis returns brief text (guardrail-checked)
-  - Critique returns repair suggestions or approval
+  - Guardrail returns blocked claims or approval
 
-THOUGHT (LLM reflects on observation):
+REASONING SUMMARY (safe trace summary, not raw thought):
   "Given this result, do I have enough to conclude? 
    Should I revise the query and retrieve again?"
 
@@ -132,7 +131,7 @@ THOUGHT (LLM reflects on observation):
 START: LLM receives task spec, memory, skill, prior evidence
 
 LOOP (max_iterations = 3):
-  ┌─ THOUGHT: Analyze current evidence state
+  ┌─ INTERNAL REASONING: Analyze current evidence state
   │   - Which sectors/years covered?
   │   - Which metrics verified?
   │   - Are there gaps aligned to skill requirements?
@@ -142,7 +141,7 @@ LOOP (max_iterations = 3):
   │   ├─ If: Critical evidence gap (missing year/section)
   │   │    → ACTION: hybrid_retrieve(refined_query)
   │   │       OBSERVATION: New chunks + reranked evidence
-  │   │       THOUGHT: Is evidence now sufficient?
+  │   │       REASONING SUMMARY: Is evidence now sufficient?
   │   │
   │   ├─ If: Enough evidence, need to verify numerics
   │   │    → ACTION: xbrl_fact_lookup(metric, year) for each metric
@@ -152,24 +151,25 @@ LOOP (max_iterations = 3):
   │   │             OBSERVATION: Verification result (verified/unsupported)
   │   │
   │   ├─ If: Evidence sufficient, ready to write brief
-  │   │    → ACTION: synthesize(task, evidence, verified_facts)
-  │   │       OBSERVATION: Brief markdown + inline verification status
-  │   │       → ACTION: critic(brief, verification_results)
-  │   │          OBSERVATION: Critique with repair suggestions or APPROVED
-  │   │          If: Repairs needed → invoke repair tool → resynthesizes
+  │   │    → ROLE: LLM Synthesizer writes draft from evidence + verified facts
+  │   │       → ACTION: numeric_guardrail_check(draft, verified_facts)
+  │   │          OBSERVATION: deterministic blocked claims or numeric approval
+  │   │       → ROLE: LLM Critic performs semantic review
+  │   │          OBSERVATION: critique summary with repair suggestions or APPROVED
+  │   │          If: Repairs needed → deterministic repair + LLM resynthesis
   │   │          Else → STOP: Return brief
   │   │
   │   └─ If: Evidence insufficient after max_iterations
   │        → STOP: Return brief with limitations note
   │
-  └─ Loop back to THOUGHT with updated evidence
+  └─ Loop back with updated evidence and safe reasoning_summary
 ```
 
 ### 2.3 Stopping Conditions
 
 - **Success**: Critic approves brief (all claims supported/verified)
 - **Iterations exhausted**: max_iterations reached → return brief with "limited evidence" caveat
-- **Numeric mismatch**: LLM tries to include unverified number → critic blocks → repair tool fixes → resynthesizes
+- **Numeric mismatch**: LLM tries to include unverified number → critic blocks → deterministic repair stage removes/downgrades claim → resynthesizes
 - **User timeout**: Configurable token budget per run (fallback: return partial brief)
 
 ---
@@ -184,13 +184,8 @@ Each tool is a Python function wrapped for Bedrock tool-use schema.
 
 **`hybrid_retrieve(query: str, top_n: int = 40) → List[Chunk]`**
 - Invokes M1 HybridRetriever (BM25 + vector + RRF)
-- Returns ranked chunks with chunk_id, section_type, fiscal_year, text, citation
+- Returns ranked/reranked chunks with chunk_id, section_type, fiscal_year, text, citation
 - LLM calls when evidence gap detected
-
-**`rerank(query: str, candidates: List[Chunk], top_k: int = 12) → List[Chunk]`**
-- Applies M1 Reranker
-- Returns top-k reranked evidence
-- Called automatically after retrieve (LLM doesn't invoke directly; part of retrieve pipeline)
 
 #### Evidence Verification Tools
 
@@ -198,11 +193,6 @@ Each tool is a Python function wrapped for Bedrock tool-use schema.
 - Queries M2 fact store for XBRL debt metrics
 - Returns NumericFact (value, unit, source, confidence)
 - LLM calls for each metric needed
-
-**`narrative_fact_lookup(metric_name: str, fiscal_year: int, evidence_chunks: List[Chunk]) → Fact | None`**
-- Extracts liquidity facts from retrieved narrative chunks
-- Returns NumericFact with high_confidence requirement
-- LLM calls for narrative-only metrics
 
 **`verify_numeric_claim(metric_name: str, old_year: int, new_year: int) → VerificationResult`**
 - Deterministic: Calls M2 NumericVerifier
@@ -220,11 +210,6 @@ Each tool is a Python function wrapped for Bedrock tool-use schema.
 - Returns: {useful_sections, successful_queries, verified_metrics}
 - LLM reads this early in research; informs retrieval strategy
 - No write; memory updates happen post-run
-
-**`load_skill() → ResearchSkill`**
-- Returns: {required_evidence_categories, required_sections, rules}
-- LLM reads to understand evidence expectations
-- No modification by LLM
 
 #### Query Rewriting Tool
 
@@ -246,22 +231,13 @@ Each tool is a Python function wrapped for Bedrock tool-use schema.
 - Returns: {blocked_claims: [List of unverified numbers], unverified_issues: [List], severity: "block|warn"}
 - **Critical precision**: Regex must NOT false-positive on "2023" or "paragraph 4" or "3 sources cited"
 
-#### Repair Tool
-
-**`repair_brief(brief: Brief, blocked_claims: [List]) → Brief`**
-- Deterministic rule engine: Removes or downgrades blocked numeric claims
-- Returns: Cleaned brief (guardrail-verified, no unverified numbers)
-- Tool does NOT regenerate text; strictly removal + caveat insertion ("Numeric claim removed: insufficient verification")
-
 #### Utility Tools
 
 **`write_workpaper(artifact_name: str, content: Any) → Path`**
 - Writes numeric_facts, numeric_verification, evaluation_summary to run workspace
 - Called by system (not LLM) post-loop
 
-**`get_trace_snapshot() → Dict`**
-- Returns current trace state (for LLM to review mid-loop if needed)
-- Not used in baseline; available for advanced debugging
+System-internal functions such as reranking, skill loading, deterministic repair, and narrative fact extraction may run inside loop stages, but they are not exposed as LLM-callable tools.
 
 ### 3.2 Bedrock Tool Calling Schema
 
@@ -385,23 +361,45 @@ Both layers must pass. If both pass → brief is safe to publish.
 ```markdown
 You are an AI credit research analyst. Your task is to analyze a company's 
 debt and liquidity risk by retrieving evidence from SEC filings, verifying 
-numeric facts using deterministic tools, and writing a brief.
+numeric facts using deterministic tools, and synthesizing conclusions.
 
 **Critical Rules:**
 1. Think step-by-step. Before acting, state what you know and what you need.
-2. Use ONLY the tools provided. Do NOT invent calculations.
-3. Every number in your final brief MUST be verified by a tool.
+2. Use ONLY the tools provided. Do NOT invent calculations or facts.
+3. Every number in your final brief MUST be verified by a tool or sourced from verified facts.
 4. If you cannot verify a number, do NOT state it.
-5. If the critic rejects your brief, accept the repair and integrate feedback.
-6. You have a max of 3 retrieval iterations. After that, write what you have.
+5. You have a max of 3 retrieval iterations. After that, synthesize what you have.
 
-**Available Tools:**
-- hybrid_retrieve(query) → [Chunk]
-- xbrl_fact_lookup(metric, year) → Fact | None
-- verify_numeric_claim(metric, old_year, new_year) → VerificationResult
-- synthesize_draft(task, evidence, verified_facts) → Brief
-- critic_evaluate(brief, verification_results) → CriticResult
-- repair_brief(brief, unsupported_claims) → Brief
+**Available Deterministic Tools** (safe to call; outputs are predictable):
+- hybrid_retrieve(query: str) → List[Chunk]
+  Retrieves ranked evidence chunks from SEC filings
+  
+- xbrl_fact_lookup(metric_name: str, fiscal_year: int) → Fact | None
+  Returns XBRL debt metrics (value, unit, source, confidence)
+  
+- verify_numeric_claim(metric_name: str, old_year: int, new_year: int) → VerificationResult
+  Returns verification status (verified/unsupported/low_confidence) + delta calculations
+  
+- calculate_change(old_value: float, new_value: float) → Dict[str, float]
+  Returns {delta, pct_change, direction}
+  
+- query_memory(topic: str) → Dict[str, Any]
+  Returns successful prior queries and verified metrics (read-only)
+  
+- query_rewrite_helper(task: TaskSpec, coverage_gaps: List[str]) → Dict
+  Returns improved query with target years/sections (LLM-generated or rule fallback)
+  
+- numeric_guardrail_check(brief_text: str, verified_facts: Dict) → GuardrailResult
+  Scans brief for unverified financial numbers; returns {blocked_claims, issues}
+
+- write_workpaper(artifact_name: str, content: Any) → Path
+  Writes auditable run artifacts such as tool observations and verification results
+
+**Your Roles** (perform directly; not via tool calls):
+- Planner: Develop research strategy from task + memory + skill
+- Evidence Evaluator: Analyze evidence sufficiency; decide retrieve/verify/synthesize
+- Synthesizer: Write brief from evidence + verified facts (must cite sources)
+- Critic: Evaluate brief for accuracy and completeness
 
 Go.
 ```
@@ -480,9 +478,9 @@ def run_agent(task, max_tokens=100000):
             log("Token budget 80% used; will stop after this action")
         
         if tokens_used > max_tokens:
-            # Stop: invoke synthesize NOW with current evidence
+            # Stop: transition to LLM Synthesizer role with current evidence
             log("Token limit exceeded; finalizing brief")
-            brief = synthesize_draft(task, evidence, verified_facts)
+            brief = llm_synthesizer_role(task, evidence, verified_facts)
             return brief
         
         # Continue loop
@@ -571,15 +569,15 @@ Then action step:
 - Full ReAct loop with mock LLM (deterministic responses):
   - LLM decides to retrieve → tool returns chunks ✓
   - LLM decides to verify → tool returns verified fact ✓
-  - LLM invokes synthesize → returns brief with [verified: ...] tags ✓
-  - Critic validates tags → approves or rejects ✓
+  - LLM Synthesizer role writes brief with [verified: ...] tags ✓
+  - numeric_guardrail_check validates tags; LLM Critic performs semantic review ✓
   
 - Guardrail enforcement:
   - LLM writes unverified number → critic catches it ✓
   - Repair removes it → brief is clean ✓
   
 - Trace completeness:
-  - Every LLM thought/action logged ✓
+  - Every LLM reasoning_summary/action logged ✓
   - Every tool call traced ✓
   - Trace links numbers back to verification ✓
 
@@ -605,10 +603,9 @@ Run same task 3 times with different LLM seeds:
 
 1. **Wrap M1/M2 functions as tools** (non-breaking; logic unchanged)
    - `hybrid_retrieve` → signature + docstring
-   - `rerank` → signature
-   - `xbrl_fact_lookup`, `narrative_fact_lookup` → signatures
+   - `xbrl_fact_lookup` → signature
    - `verify_numeric_claim`, `calculate_change` → signatures
-   - `query_memory`, `write_workpaper`, `numeric_guardrail_check` → signatures
+   - `query_memory`, `query_rewrite_helper`, `numeric_guardrail_check`, `write_workpaper` → signatures
    - **NOT**: Synthesizer, Critic (these are LLM roles, not tools)
 
 2. **Bedrock Tool Calling Integration**
@@ -644,7 +641,7 @@ Run same task 3 times with different LLM seeds:
    - Distinguish: financial numbers (require verification) vs metadata (year, count — skip)
    - Returns blocked_claims with high precision (no false positives on "2023")
 
-3. **Repair Tool**
+3. **Deterministic Repair Stage**
    - Deterministic removal of blocked claims
    - Add caveat insertion (no regeneration; stay simple)
 
@@ -674,7 +671,7 @@ Run same task 3 times with different LLM seeds:
 ### Phase 4: ReAct Loop Controller ← **[AGENT QUALITY CHANGE POINT]** (3 weeks)
 
 1. **ReAct State Machine**
-   - THOUGHT (LLM: Evidence Evaluator) → ACTION (invoke tool) → OBSERVATION (parse result) → back to THOUGHT
+   - reasoning_summary (LLM: Evidence Evaluator) → ACTION (invoke tool) → OBSERVATION (parse result) → next reasoning_summary
    - Stopping: critic approves brief, max_iterations reached, token budget exceeded
    - Clear loop control (no infinite retries)
 
@@ -689,7 +686,7 @@ Run same task 3 times with different LLM seeds:
 3. **Phase 4 Acceptance** ⚠️ **AGENT PROOF**:
    - Agent autonomously completes M2 demo task: query → retrieve → verify → synthesize → critic → brief
    - No human hand-off at decision points
-   - Trace shows clear THOUGHT→ACTION→OBSERVATION chain
+   - Trace shows clear reasoning_summary→ACTION→OBSERVATION chain
    - Agent stops on success (critic approval) or max_iterations
    - Brief is verified-clean (guardrail passed)
 
@@ -736,7 +733,7 @@ Run same task 3 times with different LLM seeds:
 | Retrieval | BM25 + Vector | ✓ | ✓ | ✓ Tool-ified |
 | Reranking | Local embedding | ✓ | ✓ | ✓ Tool-ified |
 | Evidence Evaluation | Rule-based sufficiency check | ✓ | ✓ | **LLM + Guardrail** |
-| Query Rewrite | Rule-based (coverage gaps) | ✓ | ✓ | ✓ Rule engine (now a tool) |
+| Query Rewrite | Rule-based (coverage gaps) | ✓ | ✓ | **LLM-driven primary + deterministic fallback helper** |
 | Numeric Verification | Deterministic calculations | - | ✓ | ✓ **Tool-only** |
 | Brief Synthesis | Template-driven | Template | Template | **LLM + Verification** |
 | Critic/Reflection | Rule-based | Rule | Rule | **LLM + Guardrail** |
@@ -805,7 +802,7 @@ Criteria:
 
 - Agent autonomously completes M2 task end-to-end
 - No human hand-off at decision points
-- Trace shows THOUGHT→ACTION→OBSERVATION loop
+- Trace shows reasoning_summary→ACTION→OBSERVATION loop without raw internal thought
 - Agent stops on success (critic approval) or max_iterations
 - Brief passes both Layer 1 (numeric) and Layer 2 (semantic) guardrails
 - Evidence, verification, synthesis, and criticism are all agent-driven
@@ -854,10 +851,10 @@ Criteria:
 You are an expert credit analyst. Analyze this company's debt and liquidity risk.
 
 CRITICAL RULES:
-1. Think before acting. Say what you know, what you need, and which tool to call.
+1. Reason before acting, but only record a concise reasoning_summary and decision_basis in trace.
 2. Use ONLY provided tools. Never invent calculations or facts.
 3. Every number you write must be verified by a tool. If you can't verify, don't write it.
-4. If the critic rejects your brief, accept the repair without argument.
+4. Synthesizer and Critic are LLM roles, not tools.
 5. You have 3 retrieval iterations. After that, finalize based on what you have.
 
 TASK:
@@ -876,17 +873,20 @@ AVAILABLE TOOLS:
    - Calculates delta and verifies claim
    - Returns status (verified/unsupported) + calculations
    
-4. synthesize_draft(task: str, evidence: List, verified_facts: List) → Brief
-   - Generates brief from evidence and facts
-   - Must cite every number: [verified: fact_id]
-   
-5. critic_evaluate(brief: str, verified_facts: List) → CriticResult
-   - Checks brief for unverified numbers
-   - Returns {approved, unsupported_claims, repairs}
-   
-6. repair_brief(brief: str, unsupported_claims: List) → Brief
-   - Removes unsupported claims, cleans brief
-   - Returns verified-clean brief
+4. calculate_change(old_value: float, new_value: float) → ChangeResult
+   - Returns delta, percentage change, and direction
+
+5. query_memory(topic: str) → MemoryResult
+   - Returns useful sections, successful queries, and verified metrics
+
+6. query_rewrite_helper(task: TaskSpec, coverage_gaps: List[str]) → QueryRewriteResult
+   - Provides deterministic fallback structure if LLM query rewrite fails
+
+7. numeric_guardrail_check(brief_text: str, verified_facts: Dict) → GuardrailResult
+   - Blocks unverified financial numbers while ignoring years and citation counts
+
+8. write_workpaper(artifact_name: str, content: Any) → Path
+   - Persists auditable artifacts
 
 START:
 
@@ -894,9 +894,9 @@ Current memory: {memory}
 Skill requirements: {skill.required_evidence_categories}
 Current evidence: {evidence_summary}
 
-THOUGHT: What evidence do I have? What am I missing?
+REASONING SUMMARY: What evidence do I have? What am I missing?
 
-[Your reasoning here]
+[Concise summary only; do not log raw internal thought]
 
 ACTION: [Which tool to call? {tool_name: args}]
 

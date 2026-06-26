@@ -1,10 +1,137 @@
 # Verified Credit Research Agent
 
-Milestone 1 builds a narrow, auditable retrieval loop for one Ford debt and liquidity risk question:
+LLM-driven ReAct agent for SEC filing-based credit research, with deterministic financial verification and auditable workpaper traces.
+
+This project is a narrow, demo-ready credit research harness for one question:
 
 > How did Ford's debt and liquidity risk change from 2023 to 2025, and what evidence supports the change?
 
-The first milestone is intentionally scoped to SEC filing ingestion, section-aware chunking, hybrid retrieval, reranking, evidence coverage checks, query rewrite, cited synthesis, and trace logging.
+It is not a generic SEC chatbot and not an investment recommendation engine. The goal is to demonstrate an auditable agent workflow for debt and liquidity risk research over SEC filings.
 
-See [milestone_1_technical_design.md](milestone_1_technical_design.md) for the approved design.
+## Milestone Evolution
 
+**M1: rule-based retrieval loop**
+
+- SEC filing ingestion for Ford 2023 and 2025 filings.
+- Section-aware chunking.
+- BM25 plus dense vector retrieval.
+- RRF fusion and reranking.
+- Evidence sufficiency checks.
+- Query rewrite and re-retrieval.
+- Cited final answer and trace log.
+
+**M2: deterministic numeric verification + memory / skill + evaluation**
+
+- XBRL-first debt fact extraction.
+- Text-based extraction for liquidity metrics where appropriate.
+- Deterministic numeric claim verification.
+- Verified numeric conclusions written back into the brief.
+- Research memory and debt/liquidity skill behavior.
+- Evaluation metrics and workpaper artifacts.
+
+**M3: LLM-driven ReAct agent**
+
+- Bedrock Claude tool calling.
+- LLM query rewrite with deterministic fallback.
+- LLM synthesis bounded by verified facts.
+- ReAct controller that calls deterministic tools.
+- Numeric guardrails that block unsupported financial numbers.
+- Dual critic: deterministic numeric guardrail plus LLM semantic critic.
+- Workpaper trace with `reasoning_summary` and `decision_basis`, not raw chain-of-thought.
+
+## M3 Demo Results
+
+The M3 demo was run with real Bedrock tool calling and passed through Phase 5.
+
+| Metric | Result |
+|---|---:|
+| `phase2_numeric_guardrail` | `block` |
+| `phase2_repaired` | `true` |
+| `phase3_fallback_used` | `false` |
+| `phase4_tool_call_count` | `9` |
+| `final_answer_numeric_guardrail` | `pass` |
+| blocked claims | `0` |
+| `phase5_semantic_approved` | `true` |
+| tests | `35 passed` |
+
+The Phase 4 ReAct loop made these tool calls:
+
+- `query_memory`
+- `hybrid_retrieve`
+- `verify_numeric_claim` five times
+- `numeric_guardrail_check`
+- `write_workpaper`
+
+## Neurosymbolic Boundary
+
+The project deliberately separates LLM judgment from deterministic financial controls.
+
+**LLM responsibilities**
+
+- Interpret the research question.
+- Plan and steer the ReAct loop.
+- Rewrite retrieval queries.
+- Synthesize credit analysis.
+- Perform semantic critique.
+
+**Deterministic Python tool responsibilities**
+
+- Execute retrieval.
+- Rerank and return evidence.
+- Extract and verify numeric facts.
+- Calculate changes.
+- Enforce numeric guardrails.
+- Persist traces and workpaper artifacts.
+
+The LLM must not invent or calculate financial numbers. Numeric claims in the final answer must be supported by retrieved SEC filing evidence and verified deterministic outputs, or they are blocked/removed.
+
+## Architecture
+
+```text
+User Question
+-> Task Spec Parser
+-> Memory Reader
+-> Skill Loader
+-> LLM Planner / ReAct Loop
+-> Tool Layer
+-> Hybrid Retrieval / Reranking
+-> Numeric Verification
+-> LLM Synthesizer
+-> Numeric Guardrail
+-> Dual Critic
+-> Workpaper Trace
+-> Final Credit Research Brief
+```
+
+See [docs/architecture.md](docs/architecture.md) for a concise architecture summary.
+
+## M3 Demo Artifacts
+
+The release demo artifacts are copied into [examples/m3_full_demo](examples/m3_full_demo):
+
+- [final_answer.md](examples/m3_full_demo/final_answer.md)
+- [trace_log.json](examples/m3_full_demo/trace_log.json)
+- [phase4_react_tool_trace.json](examples/m3_full_demo/phase4_react_tool_trace.json)
+- [final_answer_numeric_guardrail.json](examples/m3_full_demo/final_answer_numeric_guardrail.json)
+- [phase5_semantic_critic.json](examples/m3_full_demo/phase5_semantic_critic.json)
+
+The original run artifacts remain under `runs/m3_full_demo/`.
+
+## Local Verification
+
+Run the test suite:
+
+```bash
+python3 -m unittest discover tests
+```
+
+The M3 release package was verified with:
+
+```text
+Ran 35 tests in 0.009s
+OK
+```
+
+## Disclaimer
+
+This project is for engineering and research demonstration only. It is not financial advice, investment advice, credit rating advice, or a recommendation to buy, sell, hold, lend to, or transact in any security or issuer.

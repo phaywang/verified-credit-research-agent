@@ -1,0 +1,113 @@
+{
+  "artifacts": {
+    "final_answer": "/Users/wangfei/projects/Verified Credit Research Agent/runs/m3_full_demo/final_answer.md",
+    "final_answer_numeric_guardrail": "/Users/wangfei/projects/Verified Credit Research Agent/runs/m3_full_demo/final_answer_numeric_guardrail.json",
+    "phase2_answer": "/Users/wangfei/projects/Verified Credit Research Agent/runs/m3_full_demo/phase2_llm_synthesized_answer.md",
+    "phase3_query_rewrite": "/Users/wangfei/projects/Verified Credit Research Agent/runs/m3_full_demo/phase3_query_rewrite.json",
+    "phase4_answer": "/Users/wangfei/projects/Verified Credit Research Agent/runs/m3_full_demo/phase4_react_final_answer.md",
+    "phase4_tool_trace": "/Users/wangfei/projects/Verified Credit Research Agent/runs/m3_full_demo/phase4_react_tool_trace.json",
+    "phase5_critic": "/Users/wangfei/projects/Verified Credit Research Agent/runs/m3_full_demo/phase5_semantic_critic.json"
+  },
+  "created_at": "2026-06-26T00:35:09.548833",
+  "final_metrics": {
+    "final_answer_numeric_guardrail": "pass",
+    "phase2_numeric_guardrail": "block",
+    "phase2_repaired": true,
+    "phase3_fallback_used": false,
+    "phase4_numeric_guardrail": "pass",
+    "phase4_tool_call_count": 9,
+    "phase5_repair_guardrail": "not_run",
+    "phase5_semantic_approved": true
+  },
+  "run_id": "m3_full_demo",
+  "status": "completed",
+  "steps": [
+    {
+      "decision_basis": [
+        "guardrail_severity=block"
+      ],
+      "outputs": {
+        "artifact": "/Users/wangfei/projects/Verified Credit Research Agent/runs/m3_full_demo/phase2_llm_synthesized_answer.md"
+      },
+      "reasoning_summary": "LLM prose is allowed only after M2 verified facts are supplied as bounded inputs.",
+      "state": "PHASE_2_SYNTHESIZE",
+      "summary": "LLM synthesizer generated a verified-number-tagged brief; deterministic guardrail evaluated it.",
+      "timestamp": "2026-06-26T00:34:08.736251"
+    },
+    {
+      "decision_basis": [
+        "fallback_used=False",
+        "target_sections=['Management Discussion and Analysis (MD&A)', 'Liquidity and Capital Resources', 'Risk Factors \u2013 Debt and Financing', 'Notes to Financial Statements \u2013 Long-Term Debt', 'Notes to Financial Statements \u2013 Credit Facilities', 'Cash Flow Statement \u2013 Financing Activities']"
+      ],
+      "outputs": {
+        "fallback_used": false,
+        "reasoning_summary": "Original query 'Ford debt risk' was too broad. Rewrite targets the two identified coverage gaps: (1) 2025 management explanation sourced from MD&A sections where executives discuss debt strategy and risk factors, and (2) liquidity evidence sourced from Liquidity and Capital Resources disclosures, cash flow statements, and credit facility footnotes. Years 2023 and 2025 are explicitly scoped to anchor retrieval to the required filing periods.",
+        "rewritten_query": "Ford Motor Company 10-K and 10-Q SEC filings 2023 2025 management discussion analysis liquidity capital resources debt obligations credit facilities cash flow adequacy going concern",
+        "target_sections": [
+          "Management Discussion and Analysis (MD&A)",
+          "Liquidity and Capital Resources",
+          "Risk Factors \u2013 Debt and Financing",
+          "Notes to Financial Statements \u2013 Long-Term Debt",
+          "Notes to Financial Statements \u2013 Credit Facilities",
+          "Cash Flow Statement \u2013 Financing Activities"
+        ],
+        "target_years": [
+          2023,
+          2025
+        ]
+      },
+      "reasoning_summary": "Original query 'Ford debt risk' was too broad. Rewrite targets the two identified coverage gaps: (1) 2025 management explanation sourced from MD&A sections where executives discuss debt strategy and risk factors, and (2) liquidity evidence sourced from Liquidity and Capital Resources disclosures, cash flow statements, and credit facility footnotes. Years 2023 and 2025 are explicitly scoped to anchor retrieval to the required filing periods.",
+      "state": "PHASE_3_QUERY_REWRITE",
+      "summary": "LLM query rewriter targeted specific evidence gaps.",
+      "timestamp": "2026-06-26T00:34:13.533927"
+    },
+    {
+      "decision_basis": [
+        "tool_call_count=9",
+        "used_query_memory=True",
+        "used_hybrid_retrieve=True",
+        "used_numeric_verifier=True",
+        "used_numeric_guardrail=True",
+        "stop_reason=end_turn"
+      ],
+      "outputs": {
+        "stop_reason": "end_turn",
+        "tool_call_count": 9,
+        "used_hybrid_retrieve": true,
+        "used_numeric_guardrail": true,
+        "used_numeric_verifier": true,
+        "used_query_memory": true
+      },
+      "reasoning_summary": "Tool events demonstrate memory, retrieval, numeric verification, and guardrail use.",
+      "state": "PHASE_4_REACT",
+      "summary": "Bedrock ReAct controller used deterministic tools before finalizing.",
+      "timestamp": "2026-06-26T00:34:57.372753"
+    },
+    {
+      "decision_basis": [
+        "numeric_guardrail=pass",
+        "phase5_repair_guardrail=not_run",
+        "semantic_approved=True"
+      ],
+      "outputs": {
+        "approved": true,
+        "issues": [
+          "The brief states the decline in long-term debt 'reduces future interest burden and leverage over the medium term' without verifying interest rate terms on the maturing vs. remaining debt, making this a mild unsupported inference.",
+          "The claim that Company liquidity expansion is 'attributable to expanded committed credit lines' is a reasonable inference but is not directly cited to a chunk confirming the credit line component increased; the brief would benefit from a caveat.",
+          "The management explanation for Ford Credit liquidity variation (quarterly fluctuation language) is attributed to F_2023_10K_credit_facilities_002 but no corresponding 2025 chunk is cited to confirm management repeated this characterization in the 2025 filing."
+        ],
+        "reasoning_summary": "The brief is materially supportable. All numeric claims are tied to verified facts with explicit chunk-id citations. The maturity-shift narrative is correctly derived from the verified current/long-term split. The liquidity conclusion is appropriately scoped to the Company-excluding-Ford-Credit perimeter, the Ford Credit perimeter is treated separately, and the brief correctly distinguishes committed credit lines from on-hand cash. The key limitation\u2014that Company cash includes restricted cash and marketable securities whose liquid, unrestricted portion is unverified\u2014is disclosed. The brief does not assert solvency adequacy or refinancing success, and it flags the contingent nature of credit line availability. No unsupported financial conclusions are present.",
+        "repair_suggestions": [
+          "Qualify the interest-burden reduction statement with a caveat that the net interest impact depends on refinancing rates, which are not verified in the cited evidence.",
+          "Add a brief note that the credit-line expansion inference is derived from the arithmetic difference between Company cash and Company liquidity movements, and cite F_2025_10K_liquidity_001 explicitly for the credit line component definition.",
+          "Either cite a 2025 chunk (e.g., F_2025_10K_credit_facilities_002) for the quarterly-fluctuation management characterization or scope the statement to the 2023 filing only to avoid implying 2025 management confirmation."
+        ]
+      },
+      "reasoning_summary": "The brief is materially supportable. All numeric claims are tied to verified facts with explicit chunk-id citations. The maturity-shift narrative is correctly derived from the verified current/long-term split. The liquidity conclusion is appropriately scoped to the Company-excluding-Ford-Credit perimeter, the Ford Credit perimeter is treated separately, and the brief correctly distinguishes committed credit lines from on-hand cash. The key limitation\u2014that Company cash includes restricted cash and marketable securities whose liquid, unrestricted portion is unverified\u2014is disclosed. The brief does not assert solvency adequacy or refinancing success, and it flags the contingent nature of credit line availability. No unsupported financial conclusions are present.",
+      "state": "PHASE_5_DUAL_CRITIC",
+      "summary": "Dual-layer critic completed: deterministic numeric guardrail plus LLM semantic critic.",
+      "timestamp": "2026-06-26T00:35:09.548812"
+    }
+  ],
+  "task": "How did Ford's debt and liquidity risk change from 2023 to 2025, and what evidence supports the change?"
+}
