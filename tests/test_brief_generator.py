@@ -173,6 +173,41 @@ class BriefGeneratorTest(unittest.TestCase):
         self.assertIn("## Conclusion", brief)
         self.assertIn("verified", brief.lower())
 
+    def test_brief_includes_verified_changes(self):
+        """Test that brief includes deterministic metric changes."""
+        gen = BriefGenerator()
+        brief = gen.generate_brief(
+            "Ford Motor Company",
+            "debt_liquidity",
+            self.ford_metrics,
+        )
+
+        self.assertIn("## Verified Changes", brief)
+        self.assertIn("| total_debt | 19.94 USD billions | 21.90 USD billions | +1.96 USD billions | +9.81% | increased |", brief)
+        self.assertIn("| cash_equivalents | 10.50 USD billions | 9.80 USD billions | -0.70 USD billions | -6.67% | decreased |", brief)
+        self.assertIn("Analyst notes", brief)
+        self.assertIn("higher leverage", brief)
+
+    def test_brief_withholds_change_when_metric_not_verified_in_both_years(self):
+        """Test that trend conclusions require verified values in both years."""
+        metrics = VerifiedMetricsSet(
+            company_name="Test Corp",
+            fiscal_years=[2023, 2024],
+            metrics={
+                2023: [
+                    MetricResult("debt", 2023, 100.0, "USD M", "verified", "XBRL"),
+                ],
+                2024: [
+                    MetricResult("cash", 2024, 50.0, "USD M", "verified", "XBRL"),
+                ],
+            },
+        )
+
+        gen = BriefGenerator()
+        brief = gen.generate_brief("Test Corp", "debt_liquidity", metrics)
+
+        self.assertIn("No metrics have verified values in both 2023 and 2024", brief)
+
     def test_brief_markdown_format(self):
         """Test that brief is valid markdown."""
         gen = BriefGenerator()

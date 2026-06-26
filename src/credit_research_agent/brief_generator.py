@@ -70,6 +70,10 @@ class BriefGenerator:
             "",
             self._generate_metrics_section(verified_metrics),
             "",
+            "## Verified Changes",
+            "",
+            self._generate_changes_section(verified_metrics),
+            "",
         ]
 
         if evidence_narrative:
@@ -145,6 +149,168 @@ class BriefGenerator:
 
         return "\n".join(lines)
 
+    def _generate_changes_section(self, metrics: VerifiedMetricsSet) -> str:
+        """Generate deterministic year-over-year change analysis."""
+        if len(metrics.fiscal_years) < 2:
+            return "At least two fiscal years are required to calculate verified changes."
+
+        start_year = min(metrics.fiscal_years)
+        end_year = max(metrics.fiscal_years)
+        start_metrics = self._verified_metric_map(metrics, start_year)
+        end_metrics = self._verified_metric_map(metrics, end_year)
+        common_metric_names = sorted(set(start_metrics) & set(end_metrics))
+
+        if not common_metric_names:
+            return (
+                f"No metrics have verified values in both {start_year} and {end_year}; "
+                "trend conclusions are therefore withheld."
+            )
+
+        lines = [
+            f"Verified numeric changes from fiscal {start_year} to fiscal {end_year}:",
+            "",
+            "| Metric | Start | End | Absolute Change | Percent Change | Direction |",
+            "|--------|-------|-----|-----------------|----------------|-----------|",
+        ]
+
+        notes = []
+        for metric_name in common_metric_names:
+            start_metric = start_metrics[metric_name]
+            end_metric = end_metrics[metric_name]
+            if start_metric.value is None or end_metric.value is None:
+                continue
+
+            absolute_change = end_metric.value - start_metric.value
+            percent_change = None
+            if start_metric.value != 0:
+                percent_change = absolute_change / abs(start_metric.value) * 100
+            direction = self._direction(absolute_change)
+            unit = end_metric.unit or start_metric.unit
+
+            lines.append(
+                "| "
+                f"{metric_name} | "
+                f"{self._format_value(start_metric.value, unit)} | "
+                f"{self._format_value(end_metric.value, unit)} | "
+                f"{self._format_signed_value(absolute_change, unit)} | "
+                f"{self._format_percent(percent_change)} | "
+                f"{direction} |"
+            )
+
+            note = self._analyst_note(metric_name, absolute_change, percent_change)
+            if note:
+                notes.append(note)
+
+        if notes:
+            lines.extend(["", "**Analyst notes**"])
+            lines.extend(f"- {note}" for note in notes)
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _verified_metric_map(
+        metrics: VerifiedMetricsSet,
+        fiscal_year: int,
+    ) -> Dict[str, MetricResult]:
+        """Return verified metrics for a year keyed by metric name."""
+        return {
+            metric.metric_name: metric
+            for metric in metrics.metrics.get(fiscal_year, [])
+            if metric.status == "verified" and metric.value is not None
+        }
+
+    @staticmethod
+    def _format_value(value: float, unit: str) -> str:
+        return f"{value:,.2f} {unit}".strip()
+
+    @staticmethod
+    def _format_signed_value(value: float, unit: str) -> str:
+        sign = "+" if value > 0 else ""
+        return f"{sign}{value:,.2f} {unit}".strip()
+
+    @staticmethod
+    def _format_percent(value: Optional[float]) -> str:
+        if value is None:
+            return "n/a"
+        sign = "+" if value > 0 else ""
+        return f"{sign}{value:.2f}%"
+
+    @staticmethod
+    def _direction(value: float) -> str:
+        if value > 0:
+            return "increased"
+        if value < 0:
+            return "decreased"
+        return "unchanged"
+
+    @staticmethod
+    def _analyst_note(
+        metric_name: str,
+        absolute_change: float,
+        percent_change: Optional[float],
+    ) -> str:
+        """Create restrained metric-level credit interpretation."""
+        readable_name = metric_name.replace("_", " ")
+        direction = BriefGenerator._direction(absolute_change)
+        percent_text = BriefGenerator._format_percent(percent_change)
+
+        if "debt" in metric_name:
+            if absolute_change > 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, which can indicate "
+                    "higher leverage or refinancing burden depending on maturity structure."
+                )
+            if absolute_change < 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, which reduces balance-sheet "
+                    "debt burden on this metric."
+                )
+        if "cash" in metric_name or "liquidity" in metric_name:
+            if absolute_change > 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, improving this liquidity "
+                    "measure before considering credit-line availability and cash needs."
+                )
+            if absolute_change < 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, weakening this liquidity "
+                    "measure before considering credit-line availability and cash needs."
+                )
+        if "equity" in metric_name:
+            if absolute_change > 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, increasing the equity "
+                    "base supporting creditors."
+                )
+            if absolute_change < 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, reducing the equity "
+                    "base supporting creditors."
+                )
+        if "income" in metric_name or "earnings" in metric_name:
+            if absolute_change > 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, supporting internal "
+                    "cash generation capacity."
+                )
+            if absolute_change < 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, pressuring internal "
+                    "cash generation capacity."
+                )
+        if "interest" in metric_name:
+            if absolute_change > 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, increasing financing-cost "
+                    "pressure."
+                )
+            if absolute_change < 0:
+                return (
+                    f"{readable_name} {direction} by {percent_text}, reducing financing-cost "
+                    "pressure."
+                )
+        return ""
+
     def _generate_conclusion(
         self,
         metrics: VerifiedMetricsSet,
@@ -184,13 +350,14 @@ class BriefGenerator:
         equity_metrics = [m for m in verified if "equity" in m.metric_name.lower()]
 
         if len(metrics.fiscal_years) == 2:
-            year1, year2 = metrics.fiscal_years[0], metrics.fiscal_years[-1]
+            year1, year2 = min(metrics.fiscal_years), max(metrics.fiscal_years)
             return (
                 f"Between {year1} and {year2}, {metrics.company_name}'s leverage position "
                 f"is evaluated based on {len(debt_metrics)} debt metrics and "
                 f"{len(equity_metrics)} equity metrics, all verified from SEC filings. "
-                "Analysis of year-over-year changes has been completed with "
-                "deterministic numeric calculations."
+                "The verified changes section above identifies the direction and size of "
+                "the debt, equity, earnings, and financing-cost movements that drive the "
+                "credit interpretation."
             )
         else:
             return (
@@ -202,7 +369,7 @@ class BriefGenerator:
     def _solvency_conclusion(metrics: VerifiedMetricsSet, verified: List[MetricResult]) -> str:
         """Generate solvency-specific conclusion."""
         if len(metrics.fiscal_years) == 2:
-            year1, year2 = metrics.fiscal_years[0], metrics.fiscal_years[-1]
+            year1, year2 = min(metrics.fiscal_years), max(metrics.fiscal_years)
             return (
                 f"{metrics.company_name}'s short-term solvency position from {year1} to {year2} "
                 f"is assessed using {len(verified)} verified metrics including current ratios, "
@@ -219,12 +386,13 @@ class BriefGenerator:
     def _debt_liquidity_conclusion(metrics: VerifiedMetricsSet, verified: List[MetricResult]) -> str:
         """Generate debt/liquidity-specific conclusion."""
         if len(metrics.fiscal_years) == 2:
-            year1, year2 = metrics.fiscal_years[0], metrics.fiscal_years[-1]
+            year1, year2 = min(metrics.fiscal_years), max(metrics.fiscal_years)
             return (
                 f"{metrics.company_name}'s debt and liquidity risk changed from {year1} to {year2}. "
-                f"Analysis is based on {len(verified)} verified metrics extracted and calculated "
-                "from SEC filing data. All numeric changes have been deterministically verified "
-                "with no estimation or modeling."
+                f"Analysis is based on {len(verified)} verified metrics extracted from SEC filing "
+                "data. The conclusion should be read by metric and source: debt, cash, and "
+                "liquidity measures may move in different directions, so the brief avoids a "
+                "single unsupported improvement/deterioration label."
             )
         else:
             return (

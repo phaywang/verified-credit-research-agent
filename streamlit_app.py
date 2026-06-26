@@ -8,6 +8,8 @@ from typing import Any, Dict, Iterable, List
 
 import streamlit as st
 
+from credit_research_agent.universal_analyzer import AnalysisResult, UniversalCreditAnalyzer
+
 
 ROOT = Path(__file__).resolve().parent
 ARTIFACT_DIR = ROOT / "examples" / "m3_full_demo"
@@ -24,6 +26,12 @@ ARCHITECTURE_FLOW = """User Question
 -> Dual Critic
 -> Workpaper Trace
 -> Final Credit Research Brief"""
+RISK_THEMES = {
+    "Leverage Analysis": "leverage_analysis",
+    "Debt & Liquidity": "debt_liquidity",
+    "Solvency Assessment": "solvency_assessment",
+    "Cash Flow Coverage": "cash_flow_coverage",
+}
 
 
 def read_text(name: str) -> str:
@@ -88,6 +96,86 @@ def render_tool_timeline(events: Iterable[Dict[str, Any]]) -> None:
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
+def metric_rows(result: AnalysisResult) -> List[Dict[str, Any]]:
+    rows = []
+    for year, metrics in sorted(result.metrics.items()):
+        for metric in metrics:
+            rows.append(
+                {
+                    "fiscal_year": year,
+                    "metric": metric.metric_name,
+                    "value": metric.value,
+                    "unit": metric.unit,
+                    "concept": metric.xbrl_concept,
+                    "source": metric.source,
+                }
+            )
+    return rows
+
+
+@st.cache_resource(show_spinner=False)
+def get_universal_analyzer() -> UniversalCreditAnalyzer:
+    return UniversalCreditAnalyzer()
+
+
+def render_live_sec_analysis() -> None:
+    st.subheader("Live SEC Companyfacts Analysis")
+    st.caption(
+        "Runs a deterministic SEC companyfacts workflow. This mode does not call Bedrock "
+        "and requires network access to sec.gov."
+    )
+
+    with st.form("live_sec_analysis_form"):
+        cols = st.columns([1, 1, 1])
+        ticker = cols[0].text_input("Ticker", value="AAPL").strip().upper()
+        theme_label = cols[1].selectbox("Risk theme", list(RISK_THEMES.keys()))
+        year_text = cols[2].text_input("Fiscal years", value="2023, 2024")
+        submitted = st.form_submit_button("Run Live SEC Analysis", type="primary")
+
+    if not submitted:
+        st.info("Enter a US-listed ticker and fiscal years, then run the live SEC analysis.")
+        return
+
+    try:
+        years = [int(part.strip()) for part in year_text.split(",") if part.strip()]
+    except ValueError:
+        st.error("Fiscal years must be comma-separated integers, for example: 2023, 2024.")
+        return
+
+    if not ticker:
+        st.error("Ticker is required.")
+        return
+    if len(years) < 1:
+        st.error("At least one fiscal year is required.")
+        return
+
+    analyzer = get_universal_analyzer()
+    with st.spinner(f"Fetching SEC companyfacts for {ticker}..."):
+        result = analyzer.analyze(ticker, RISK_THEMES[theme_label], years)
+
+    status_type = "success" if result.status == "success" else "warning"
+    getattr(st, status_type)(f"Analysis status: {result.status}")
+    if result.error:
+        st.error(result.error)
+
+    cols = st.columns(4)
+    cols[0].metric("Company", result.company or "n/a")
+    cols[1].metric("Ticker", result.ticker)
+    cols[2].metric("Theme", theme_label)
+    cols[3].metric("Metrics", sum(len(items) for items in result.metrics.values()))
+
+    if result.metrics:
+        st.subheader("Verified SEC Facts")
+        st.dataframe(metric_rows(result), use_container_width=True, hide_index=True)
+
+    if result.brief:
+        st.subheader("Generated Credit Brief")
+        st.markdown(result.brief)
+
+    with st.expander("Trace"):
+        st.json(result.trace)
+
+
 def main() -> None:
     st.set_page_config(
         page_title="Verified Credit Research Agent",
@@ -112,9 +200,10 @@ def main() -> None:
     semantic_critic = read_json("phase5_semantic_critic.json")
     final_metrics = trace_log.get("final_metrics", {})
 
-    overview, brief, trace, tools, guardrails, critic, architecture = st.tabs(
+    overview, live_sec, brief, trace, tools, guardrails, critic, architecture = st.tabs(
         [
             "Overview",
+            "Live SEC Analysis",
             "Final Brief",
             "Trace Metrics",
             "Tool Timeline",
@@ -147,6 +236,9 @@ The system does more than retrieve passages and ask an LLM to summarize them. M3
         )
 
         render_metric_row(final_metrics, guardrail)
+
+    with live_sec:
+        render_live_sec_analysis()
 
     with brief:
         st.markdown(final_answer)
