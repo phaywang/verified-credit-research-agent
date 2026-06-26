@@ -1,7 +1,11 @@
 """Tests for SEC EDGAR integration."""
 
+import os
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
+
+import requests
 
 from credit_research_agent.sec_integration import (
     SECCompanyLookup,
@@ -9,6 +13,14 @@ from credit_research_agent.sec_integration import (
     XBRLParser,
     CompanyNotFoundError,
     FilingNotFoundError,
+    _sec_get,
+)
+
+
+RUN_SEC_LIVE_TESTS = os.getenv("RUN_SEC_LIVE_TESTS") == "1"
+requires_sec_network = unittest.skipUnless(
+    RUN_SEC_LIVE_TESTS,
+    "Set RUN_SEC_LIVE_TESTS=1 to run live SEC EDGAR integration tests.",
 )
 
 
@@ -19,27 +31,32 @@ class SECCompanyLookupTest(unittest.TestCase):
         """Create lookup instance with cache."""
         self.lookup = SECCompanyLookup(cache_dir=Path("/tmp/sec_cache_test"))
 
+    @requires_sec_network
     def test_get_cik_apple(self):
         """Test CIK lookup for Apple (AAPL)."""
         cik = self.lookup.get_cik_by_ticker("AAPL")
-        self.assertEqual(cik, "0000000320193")
+        self.assertEqual(cik, "0000320193")
         self.assertTrue(cik.startswith("000"))  # Zero-padded
 
+    @requires_sec_network
     def test_get_cik_tesla(self):
         """Test CIK lookup for Tesla (TSLA)."""
         cik = self.lookup.get_cik_by_ticker("TSLA")
         self.assertEqual(cik, "0001318605")
 
+    @requires_sec_network
     def test_get_cik_microsoft(self):
         """Test CIK lookup for Microsoft (MSFT)."""
         cik = self.lookup.get_cik_by_ticker("MSFT")
-        self.assertEqual(cik, "0000000789019")
+        self.assertEqual(cik, "0000789019")
 
+    @requires_sec_network
     def test_get_cik_invalid_ticker(self):
         """Test that invalid ticker raises error."""
         with self.assertRaises(CompanyNotFoundError):
             self.lookup.get_cik_by_ticker("INVALID_TICKER_XYZ")
 
+    @requires_sec_network
     def test_get_cik_case_insensitive(self):
         """Test that ticker lookup is case-insensitive."""
         cik_upper = self.lookup.get_cik_by_ticker("AAPL")
@@ -49,6 +66,7 @@ class SECCompanyLookupTest(unittest.TestCase):
         self.assertEqual(cik_upper, cik_lower)
         self.assertEqual(cik_upper, cik_mixed)
 
+    @requires_sec_network
     def test_tickers_json_caching(self):
         """Test that tickers JSON is cached locally."""
         # First call fetches and caches
@@ -56,18 +74,67 @@ class SECCompanyLookupTest(unittest.TestCase):
         cache_path = self.lookup.cache_dir / "company_tickers.json"
         self.assertTrue(cache_path.exists())
 
+    @requires_sec_network
     def test_get_company_info_apple(self):
         """Test fetching company metadata for Apple."""
         info = self.lookup.get_company_info("0000320193")
 
         self.assertIn("Apple", info.name)
-        self.assertEqual(info.cik, "0000000320193")
+        self.assertEqual(info.cik, "0000320193")
         self.assertGreater(len(info.fiscal_years_available), 0)
 
+    @requires_sec_network
     def test_get_company_info_invalid_cik(self):
         """Test that invalid CIK raises error."""
         with self.assertRaises(CompanyNotFoundError):
             self.lookup.get_company_info("9999999999")
+
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_get_company_info_parses_submissions_schema(self, mock_get):
+        """Company info parser handles SEC submissions schema fields."""
+        response = Mock(status_code=200)
+        response.json.return_value = {
+            "cik": "0000320193",
+            "name": "Apple Inc.",
+            "tickers": ["AAPL"],
+            "exchanges": ["Nasdaq"],
+            "sic": "3571",
+            "filings": {
+                "recent": {
+                    "form": ["10-K", "10-Q", "10-K"],
+                    "reportDate": ["2024-09-28", "2024-06-29", "2023-09-30"],
+                    "filingDate": ["2024-11-01", "2024-08-02", "2023-11-03"],
+                }
+            },
+        }
+        response.raise_for_status.return_value = None
+        mock_get.return_value = response
+
+        info = self.lookup.get_company_info("0000320193")
+
+        self.assertEqual(info.name, "Apple Inc.")
+        self.assertEqual(info.cik, "0000320193")
+        self.assertEqual(info.ticker, "AAPL")
+        self.assertEqual(info.sic, "3571")
+        self.assertEqual(info.fiscal_years_available, [2024, 2023])
+
+    @patch("credit_research_agent.sec_integration.time.sleep")
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_get_cik_surfaces_sec_network_failure(self, mock_get, _mock_sleep):
+        """Ticker lookup fails honestly when live SEC access is unavailable."""
+        mock_get.side_effect = requests.ConnectionError("network unavailable")
+
+        with self.assertRaises(CompanyNotFoundError):
+            self.lookup.get_cik_by_ticker("AAPL")
+
+    @patch("credit_research_agent.sec_integration.time.sleep")
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_get_company_info_surfaces_sec_network_failure(self, mock_get, _mock_sleep):
+        """Company info does not substitute local metadata for live SEC failures."""
+        mock_get.side_effect = requests.ConnectionError("network unavailable")
+
+        with self.assertRaises(CompanyNotFoundError):
+            self.lookup.get_company_info("0000320193")
 
 
 class SEC10KFetcherTest(unittest.TestCase):
@@ -77,6 +144,7 @@ class SEC10KFetcherTest(unittest.TestCase):
         """Create fetcher instance."""
         self.fetcher = SEC10KFetcher()
 
+    @requires_sec_network
     def test_fetch_10k_apple_2023(self):
         """Test fetching Apple's 2023 10-K XBRL."""
         cik = "0000320193"  # Apple
@@ -86,6 +154,7 @@ class SEC10KFetcherTest(unittest.TestCase):
         self.assertGreater(len(xbrl_content), 1000)
         self.assertIn("xbrl", xbrl_content.lower())
 
+    @requires_sec_network
     def test_fetch_10k_missing_year(self):
         """Test that missing 10-K raises error."""
         cik = "0000320193"
@@ -93,6 +162,7 @@ class SEC10KFetcherTest(unittest.TestCase):
         with self.assertRaises(FilingNotFoundError):
             self.fetcher.fetch_10k_xbrl(cik, 2000)  # Too far in past
 
+    @requires_sec_network
     def test_get_available_years_apple(self):
         """Test getting available fiscal years for Apple."""
         cik = "0000320193"
@@ -101,6 +171,141 @@ class SEC10KFetcherTest(unittest.TestCase):
         self.assertGreater(len(years), 0)
         self.assertGreater(max(years), 2020)
         self.assertEqual(years, sorted(years, reverse=True))
+
+    @patch("credit_research_agent.sec_integration.time.sleep")
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_get_available_years_surfaces_sec_network_failure(self, mock_get, _mock_sleep):
+        """Available years return empty when live SEC access is unavailable."""
+        mock_get.side_effect = requests.ConnectionError("network unavailable")
+
+        years = self.fetcher.get_available_years("0000320193")
+
+        self.assertEqual(years, [])
+
+    @patch("credit_research_agent.sec_integration.time.sleep")
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_fetch_10k_surfaces_sec_network_failure(self, mock_get, _mock_sleep):
+        """10-K download does not substitute local filings for live SEC failures."""
+        mock_get.side_effect = requests.ConnectionError("network unavailable")
+
+        with self.assertRaises(FilingNotFoundError):
+            self.fetcher.fetch_10k_xbrl("0000320193", 2023)
+
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_fetch_10k_downloads_correct_archive_url(self, mock_get):
+        """Live download path uses the correct SEC archive URL."""
+        submissions_response = Mock()
+        submissions_response.json.return_value = {
+            "filings": {
+                "recent": {
+                    "form": ["10-K"],
+                    "accessionNumber": ["0000320193-23-000106"],
+                    "filingDate": ["2023-11-03"],
+                    "primaryDocument": ["aapl-20230930.htm"],
+                }
+            }
+        }
+        submissions_response.raise_for_status.return_value = None
+
+        filing_response = Mock()
+        filing_response.text = "<xbrl>downloaded apple 2023</xbrl>"
+        filing_response.raise_for_status.return_value = None
+
+        mock_get.side_effect = [submissions_response, filing_response]
+
+        content = self.fetcher.fetch_10k_xbrl("0000320193", 2023)
+
+        self.assertEqual(content, "<xbrl>downloaded apple 2023</xbrl>")
+        archive_url = mock_get.call_args_list[1].args[0]
+        self.assertEqual(
+            archive_url,
+            "https://www.sec.gov/Archives/edgar/data/"
+            "320193/000032019323000106/aapl-20230930.htm",
+        )
+
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_fetch_companyfacts_uses_official_endpoint(self, mock_get):
+        """Companyfacts fetch uses SEC's structured XBRL facts endpoint."""
+        response = Mock(status_code=200)
+        response.json.return_value = {"entityName": "Apple Inc.", "facts": {}}
+        response.raise_for_status.return_value = None
+        mock_get.return_value = response
+
+        facts = self.fetcher.fetch_companyfacts("0000320193")
+
+        self.assertEqual(facts["entityName"], "Apple Inc.")
+        url = mock_get.call_args.args[0]
+        self.assertEqual(
+            url,
+            "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+        )
+
+
+class SECHTTPClientTest(unittest.TestCase):
+    """Test SEC request behavior."""
+
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_sec_get_sends_user_agent(self, mock_get):
+        mock_response = Mock()
+        mock_get.return_value = mock_response
+
+        response = _sec_get("https://www.sec.gov/files/company_tickers.json", timeout=7)
+
+        self.assertIs(response, mock_response)
+        _, kwargs = mock_get.call_args
+        self.assertEqual(kwargs["timeout"], 7)
+        self.assertIn("User-Agent", kwargs["headers"])
+        self.assertIn("VerifiedCreditResearchAgent", kwargs["headers"]["User-Agent"])
+
+    @patch("credit_research_agent.sec_integration.time.sleep")
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_sec_get_retries_transient_network_error(self, mock_get, mock_sleep):
+        transient_error = requests.ConnectionError("temporary DNS failure")
+        success_response = Mock(status_code=200)
+        mock_get.side_effect = [transient_error, success_response]
+
+        response = _sec_get(
+            "https://www.sec.gov/files/company_tickers.json",
+            max_attempts=2,
+            backoff_seconds=0.01,
+        )
+
+        self.assertIs(response, success_response)
+        self.assertEqual(mock_get.call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch("credit_research_agent.sec_integration.time.sleep")
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_sec_get_retries_retryable_status(self, mock_get, mock_sleep):
+        rate_limited = Mock(status_code=429)
+        success_response = Mock(status_code=200)
+        mock_get.side_effect = [rate_limited, success_response]
+
+        response = _sec_get(
+            "https://data.sec.gov/submissions/CIK0000320193.json",
+            max_attempts=2,
+            backoff_seconds=0.01,
+        )
+
+        self.assertIs(response, success_response)
+        self.assertEqual(mock_get.call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch("credit_research_agent.sec_integration.time.sleep")
+    @patch("credit_research_agent.sec_integration.requests.get")
+    def test_sec_get_does_not_retry_non_retryable_status(self, mock_get, mock_sleep):
+        not_found = Mock(status_code=404)
+        mock_get.return_value = not_found
+
+        response = _sec_get(
+            "https://data.sec.gov/submissions/CIK9999999999.json",
+            max_attempts=3,
+            backoff_seconds=0.01,
+        )
+
+        self.assertIs(response, not_found)
+        mock_get.assert_called_once()
+        mock_sleep.assert_not_called()
 
 
 class XBRLParserTest(unittest.TestCase):
@@ -162,6 +367,40 @@ class XBRLParserTest(unittest.TestCase):
         self.assertIn("Assets", metrics)
         self.assertIn("Liabilities", metrics)
 
+    def test_extract_metrics_from_companyfacts(self):
+        """Test extracting annual 10-K facts from SEC companyfacts JSON."""
+        companyfacts = {
+            "facts": {
+                "us-gaap": {
+                    "DebtAndFinancingArrangementsAmount": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2023,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2023-11-03",
+                                    "end": "2023-09-30",
+                                    "val": 11100000000,
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+
+        metrics = self.parser.extract_metrics_from_companyfacts(
+            companyfacts,
+            {"total_debt": ["DebtAndFinancingArrangementsAmount"]},
+            2023,
+        )
+
+        self.assertIn("total_debt", metrics)
+        self.assertEqual(metrics["total_debt"].value, 11100.0)
+        self.assertEqual(metrics["total_debt"].source, "SEC companyfacts")
+
+    @requires_sec_network
     def test_parse_real_xbrl_if_available(self):
         """Test parsing real XBRL (integration test, skipped if API unavailable)."""
         try:
@@ -191,6 +430,7 @@ class XBRLParserTest(unittest.TestCase):
 class SEC10KFetcherIntegrationTest(unittest.TestCase):
     """Integration tests with real SEC EDGAR."""
 
+    @requires_sec_network
     def test_end_to_end_apple_2023(self):
         """Test end-to-end: lookup → fetch 10-K."""
         lookup = SECCompanyLookup()
@@ -198,7 +438,7 @@ class SEC10KFetcherIntegrationTest(unittest.TestCase):
 
         # Step 1: Lookup CIK
         cik = lookup.get_cik_by_ticker("AAPL")
-        self.assertEqual(cik, "0000000320193")
+        self.assertEqual(cik, "0000320193")
 
         # Step 2: Get available years
         years = fetcher.get_available_years(cik)
@@ -208,6 +448,7 @@ class SEC10KFetcherIntegrationTest(unittest.TestCase):
         xbrl = fetcher.fetch_10k_xbrl(cik, 2023)
         self.assertGreater(len(xbrl), 1000)
 
+    @requires_sec_network
     def test_end_to_end_multiple_companies(self):
         """Test lookup + fetch for multiple companies."""
         lookup = SECCompanyLookup()
@@ -215,8 +456,8 @@ class SEC10KFetcherIntegrationTest(unittest.TestCase):
 
         tickers = ["AAPL", "MSFT", "TSLA"]
         expected_ciks = {
-            "AAPL": "0000000320193",
-            "MSFT": "0000000789019",
+            "AAPL": "0000320193",
+            "MSFT": "0000789019",
             "TSLA": "0001318605",
         }
 

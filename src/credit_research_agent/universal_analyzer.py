@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from credit_research_agent.config_loader import ConfigLoader
 from credit_research_agent.sec_integration import (
@@ -21,6 +21,7 @@ from credit_research_agent.sec_integration import (
 )
 from credit_research_agent.brief_generator import (
     BriefGenerator,
+    MetricResult,
     VerifiedMetricsSet,
 )
 from credit_research_agent.task_generator import TaskGenerator
@@ -95,27 +96,27 @@ class UniversalCreditAnalyzer:
                 "cik": company_info.cik,
             })
 
-            # Step 2: Fetch 10-K data
-            logger.info(f"Fetching 10-K data for {years}...")
-            result.trace.append({"step": "fetch_10k_data", "status": "starting"})
+            # Step 2: Fetch structured SEC companyfacts
+            logger.info("Fetching SEC companyfacts...")
+            result.trace.append({"step": "fetch_companyfacts", "status": "starting"})
 
-            xbrl_data = self._fetch_10k_data(company_info.cik, years)
+            companyfacts = self._fetch_companyfacts_data(company_info.cik)
             result.trace.append({
-                "step": "fetch_10k_data",
+                "step": "fetch_companyfacts",
                 "status": "success",
-                "years_fetched": list(xbrl_data.keys()),
+                "entity": companyfacts.get("entityName", company_info.name),
             })
 
             # Step 3: Parse XBRL and extract metrics
-            logger.info("Parsing XBRL and extracting metrics...")
-            result.trace.append({"step": "parse_xbrl", "status": "starting"})
+            logger.info("Extracting metrics from SEC companyfacts...")
+            result.trace.append({"step": "extract_companyfacts", "status": "starting"})
 
             metrics_by_year = self._extract_metrics(
-                xbrl_data, risk_theme, years
+                companyfacts, risk_theme, years
             )
             result.metrics = metrics_by_year
             result.trace.append({
-                "step": "parse_xbrl",
+                "step": "extract_companyfacts",
                 "status": "success",
                 "metrics_extracted": sum(
                     len(m) for m in metrics_by_year.values()
@@ -155,7 +156,7 @@ class UniversalCreditAnalyzer:
             result.status = "partial"
             result.error = str(e)
             result.trace.append({
-                "step": "fetch_10k_data",
+                "step": "fetch_companyfacts",
                 "status": "error",
                 "error": str(e),
             })
@@ -201,34 +202,59 @@ class UniversalCreditAnalyzer:
 
         return xbrl_data
 
+    def _fetch_companyfacts_data(self, cik: str) -> Dict[str, Any]:
+        """Fetch structured SEC companyfacts for deterministic metric extraction."""
+        return self.fetcher.fetch_companyfacts(cik)
+
     def _extract_metrics(
         self,
-        xbrl_data: Dict[int, str],
+        companyfacts: Dict[str, Any],
         risk_theme: str,
         years: List[int],
     ) -> Dict[int, List[MetricValue]]:
-        """Extract metrics for each year."""
+        """Extract metrics for each year from SEC companyfacts."""
         metrics_by_year: Dict[int, List[MetricValue]] = {}
 
-        # Get metric names for this theme from config
         theme_config = self.config_loader.get_risk_theme(risk_theme)
-        metric_names = theme_config.get("metrics", [])
+        metric_names = self._metric_names_for_theme(theme_config)
+        metric_selectors = self._metric_selectors(metric_names)
 
         for year in years:
-            if year not in xbrl_data:
-                continue
-
             logger.info(f"Extracting metrics for {year}...")
-            xbrl_content = xbrl_data[year]
-
-            # Parse XBRL and extract metrics
-            extracted = self.parser.extract_metrics(
-                xbrl_content, metric_names, year
+            extracted = self.parser.extract_metrics_from_companyfacts(
+                companyfacts, metric_selectors, year
             )
-
             metrics_by_year[year] = list(extracted.values())
 
         return metrics_by_year
+
+    def _metric_names_for_theme(self, theme_config) -> List[str]:
+        """Read metric names from either real config dataclass or legacy test dict."""
+        if isinstance(theme_config, dict):
+            return theme_config.get("key_metrics") or theme_config.get("metrics", [])
+        return list(getattr(theme_config, "key_metrics", []))
+
+    def _metric_selectors(self, metric_names: List[str]) -> Dict[str, List[str]]:
+        """Build metric-to-XBRL concept mapping from configured metric definitions."""
+        metrics_config = self.config_loader.load_metrics()
+        selectors: Dict[str, List[str]] = {}
+
+        for metric_name in metric_names:
+            metric_config = metrics_config.get(metric_name)
+            if metric_config is None:
+                logger.warning("No metric mapping configured for %s", metric_name)
+                continue
+
+            concepts = []
+            for selector in getattr(metric_config, "xbrl_selectors", []):
+                concept = selector.get("concept")
+                if concept:
+                    concepts.append(concept)
+
+            if concepts:
+                selectors[metric_name] = concepts
+
+        return selectors
 
     def _generate_brief(
         self,
@@ -237,14 +263,27 @@ class UniversalCreditAnalyzer:
         metrics_by_year: Dict[int, List[MetricValue]],
     ) -> str:
         """Generate markdown brief from metrics."""
-        # Convert metrics to VerifiedMetricsSet format
+        converted_metrics = {
+            year: [
+                MetricResult(
+                    metric_name=metric.metric_name,
+                    fiscal_year=metric.fiscal_year,
+                    value=metric.value,
+                    unit=metric.unit,
+                    status="verified" if metric.value is not None else "unsupported",
+                    source=metric.source,
+                )
+                for metric in metrics
+            ]
+            for year, metrics in metrics_by_year.items()
+        }
+
         verified_metrics = VerifiedMetricsSet(
             company_name=company_name,
-            risk_theme=risk_theme,
-            verified_metrics=metrics_by_year,
+            fiscal_years=sorted(metrics_by_year.keys()),
+            metrics=converted_metrics,
         )
 
-        # Generate brief using existing generator
         brief = self.brief_generator.generate_brief(
             company_name, risk_theme, verified_metrics
         )

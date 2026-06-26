@@ -11,6 +11,9 @@ metrics:
         companies: ["ford"]
       - concept: "DebtAndFinancingArrangementsAmount"
         # General fallback for other companies
+      - concept: "LongTermDebt"
+        # Common companyfacts concept for total long-term debt including current maturities
+      - concept: "DebtInstrumentCarryingAmount"
     text_patterns:
       - "total debt"
       - "total.*debt.*excluding.*credit"
@@ -22,6 +25,8 @@ metrics:
       - concept: "DebtCurrent"
       - concept: "ShortTermBorrowings"
       - concept: "CurrentPortionOfLongTermDebt"
+      - concept: "LongTermDebtCurrent"
+      - concept: "CommercialPaper"
     text_patterns:
       - "current.*debt"
       - "debt.*payable.*within.*one year"
@@ -31,8 +36,9 @@ metrics:
   long_term_debt:
     description: "Long-term debt payable after one year"
     xbrl_selectors:
-      - concept: "LongTermDebt"
+      - concept: "LongTermDebtNoncurrent"
       - concept: "DebtNonCurrent"
+      - concept: "LongTermDebt"
     text_patterns:
       - "long.*term.*debt"
       - "noncurrent.*debt"
@@ -43,6 +49,7 @@ metrics:
     description: "Cash and cash equivalents"
     xbrl_selectors:
       - concept: "Cash"
+      - concept: "CashAndCashEquivalentsAtCarryingValue"
       - concept: "CashAndCashEquivalentAtCarryingValue"
     text_patterns:
       - "cash.*cash equivalents"

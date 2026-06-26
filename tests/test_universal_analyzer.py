@@ -13,6 +13,7 @@ from credit_research_agent.sec_integration import (
     CompanyNotFoundError,
     FilingNotFoundError,
 )
+from credit_research_agent.config_loader import MetricDefinition
 
 
 class UniversalAnalyzerTest(unittest.TestCase):
@@ -44,21 +45,21 @@ class UniversalAnalyzerTest(unittest.TestCase):
 
         mock_company = CompanyInfo(
             name="Apple Inc.",
-            cik="0000000320193",
+            cik="0000320193",
             ticker="AAPL",
             sic="3571",
             sector="Technology",
             fiscal_years_available=[2023, 2024],
         )
 
-        mock_lookup.get_cik_by_ticker.return_value = "0000000320193"
+        mock_lookup.get_cik_by_ticker.return_value = "0000320193"
         mock_lookup.get_company_info.return_value = mock_company
 
         analyzer = UniversalCreditAnalyzer()
         company_info = analyzer._lookup_company("AAPL")
 
         self.assertEqual(company_info.name, "Apple Inc.")
-        self.assertEqual(company_info.cik, "0000000320193")
+        self.assertEqual(company_info.cik, "0000320193")
 
     @patch("credit_research_agent.universal_analyzer.SECCompanyLookup")
     def test_lookup_company_not_found(self, mock_lookup_class):
@@ -102,26 +103,45 @@ class UniversalAnalyzerTest(unittest.TestCase):
         with self.assertRaises(FilingNotFoundError):
             self.analyzer._fetch_10k_data("0000320193", [2023, 2024])
 
-    def test_extract_metrics_from_xbrl(self):
-        """Test metric extraction from XBRL."""
-        mock_xbrl = """<?xml version="1.0"?>
-        <xbrl xmlns:us-gaap="http://xbrl.us/us-types/2024-01-31">
-            <context id="Current_2023">
-                <instant>2023-12-31</instant>
-            </context>
-            <us-gaap:Debt contextRef="Current_2023" unitRef="USD">
-                50000000000
-            </us-gaap:Debt>
-        </xbrl>"""
+    def test_extract_metrics_from_companyfacts(self):
+        """Test metric extraction from SEC companyfacts."""
+        companyfacts = {
+            "facts": {
+                "us-gaap": {
+                    "DebtAndFinancingArrangementsAmount": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2023,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2024-02-01",
+                                    "end": "2023-12-31",
+                                    "val": 50000000000,
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
 
         self.analyzer.config_loader = MagicMock()
         self.analyzer.config_loader.get_risk_theme.return_value = {
-            "metrics": ["total_debt", "shareholders_equity"],
+            "metrics": ["total_debt"],
+        }
+        self.analyzer.config_loader.load_metrics.return_value = {
+            "total_debt": MetricDefinition(
+                name="total_debt",
+                description="Total debt",
+                xbrl_selectors=[
+                    {"concept": "DebtAndFinancingArrangementsAmount"}
+                ],
+            )
         }
 
-        xbrl_data = {2023: mock_xbrl}
         metrics = self.analyzer._extract_metrics(
-            xbrl_data, "leverage_analysis", [2023]
+            companyfacts, "leverage_analysis", [2023]
         )
 
         self.assertIn(2023, metrics)
@@ -157,16 +177,14 @@ class UniversalAnalyzerTest(unittest.TestCase):
         self.analyzer.lookup.get_cik_by_ticker.return_value = "0001318605"
         self.analyzer.lookup.get_company_info.return_value = mock_company
 
-        # Mock partial 10-K fetch (2023 available, 2024 not)
-        mock_xbrl = "<xbrl>test</xbrl>"
-        self.analyzer.fetcher.fetch_10k_xbrl.side_effect = [
-            mock_xbrl,
-            FilingNotFoundError("No 2024 filing"),
-        ]
+        self.analyzer.fetcher.fetch_companyfacts.return_value = {
+            "entityName": "Tesla Inc.",
+            "facts": {},
+        }
 
         # Mock parser
         self.analyzer.parser = MagicMock()
-        self.analyzer.parser.extract_metrics.return_value = {
+        self.analyzer.parser.extract_metrics_from_companyfacts.return_value = {
             "total_debt": MetricValue(
                 metric_name="total_debt",
                 value=100.0,
@@ -188,13 +206,27 @@ class UniversalAnalyzerTest(unittest.TestCase):
         self.analyzer.config_loader.get_risk_theme.return_value = {
             "metrics": ["total_debt"],
         }
+        self.analyzer.config_loader.load_metrics.return_value = {
+            "total_debt": MetricDefinition(
+                name="total_debt",
+                description="Total debt",
+                xbrl_selectors=[{"concept": "Debt"}],
+            )
+        }
 
         result = self.analyzer.analyze("TSLA", "leverage_analysis", [2023, 2024])
 
-        # Should have successful lookup
+        self.assertEqual(result.status, "success")
+        self.assertIsNone(result.error)
         self.assertEqual(result.company, "Tesla Inc.")
-        # Should have partial data (2023 only)
         self.assertIn(2023, result.metrics)
+        self.assertEqual(result.brief, "# Tesla - Leverage Brief")
+        self.analyzer.brief_generator.generate_brief.assert_called_once()
+        _, _, verified_metrics = self.analyzer.brief_generator.generate_brief.call_args.args
+        self.assertEqual(verified_metrics.company_name, "Tesla Inc.")
+        self.assertEqual(verified_metrics.fiscal_years, [2023, 2024])
+        self.assertEqual(verified_metrics.metrics[2023][0].metric_name, "total_debt")
+        self.assertEqual(verified_metrics.metrics[2023][0].status, "verified")
 
 
 class AnalysisResultTest(unittest.TestCase):

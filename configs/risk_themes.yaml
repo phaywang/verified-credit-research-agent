@@ -41,7 +41,7 @@ risk_themes:
       - "shareholders_equity"
       - "long_term_debt"
       - "interest_expense"
-      - "earnings"
+      - "net_income"
     comparison_years: 2
     rules:
       - "leverage_ratios_must_be_calculated_and_verified"

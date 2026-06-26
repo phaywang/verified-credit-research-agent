@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -23,6 +25,71 @@ except ImportError:
     requests = None  # type: ignore
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_SEC_USER_AGENT = (
+    "VerifiedCreditResearchAgent/0.1 contact@example.com "
+    "(educational portfolio project; set SEC_USER_AGENT for maintainer contact)"
+)
+SEC_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+def _sec_headers() -> Dict[str, str]:
+    """Return SEC-compliant headers for EDGAR requests."""
+
+    return {
+        "User-Agent": os.getenv("SEC_USER_AGENT", DEFAULT_SEC_USER_AGENT),
+        "Accept-Encoding": "gzip, deflate",
+    }
+
+
+def _sec_get(
+    url: str,
+    timeout: int = 10,
+    max_attempts: int = 3,
+    backoff_seconds: float = 0.5,
+):
+    """GET helper that attaches SEC-friendly headers and retries transient failures."""
+
+    if requests is None:
+        raise ImportError("requests library required for SEC API calls")
+
+    last_error = None
+    attempts = max(1, max_attempts)
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.get(url, timeout=timeout, headers=_sec_headers())
+            status_code = getattr(response, "status_code", None)
+            if (
+                isinstance(status_code, int)
+                and status_code in SEC_RETRYABLE_STATUS_CODES
+                and attempt < attempts
+            ):
+                logger.warning(
+                    "Retrying SEC request after HTTP %s for %s (attempt %s/%s)",
+                    status_code,
+                    url,
+                    attempt,
+                    attempts,
+                )
+                time.sleep(backoff_seconds * attempt)
+                continue
+            return response
+        except requests.RequestException as exc:
+            last_error = exc
+            if attempt >= attempts:
+                raise
+            logger.warning(
+                "Retrying SEC request after transient error for %s (attempt %s/%s): %s",
+                url,
+                attempt,
+                attempts,
+                exc,
+            )
+            time.sleep(backoff_seconds * attempt)
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"SEC request failed without response: {url}")
 
 
 @dataclass
@@ -82,7 +149,7 @@ class SECCompanyLookup:
             ticker: Stock ticker (e.g., "AAPL", "TSLA", "GOOGL")
 
         Returns:
-            CIK as zero-padded string (e.g., "0000000789019" for MSFT)
+            CIK as zero-padded string (e.g., "0000789019" for MSFT)
 
         Raises:
             CompanyNotFoundError: If ticker not found in SEC database
@@ -121,38 +188,47 @@ class SECCompanyLookup:
 
             # Fetch company data
             url = self.SEC_EDGAR_API.format(cik=cik_padded)
-            response = requests.get(url, timeout=10)
+            response = _sec_get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
 
-            company_facts = data.get("facts", {}).get("us-gaap", {})
-            cik_info = data.get("cik_str")
+            cik_info = data.get("cik") or data.get("cik_str")
             if not cik_info:
                 raise CompanyNotFoundError(f"CIK {cik} not found in SEC EDGAR")
 
             # Extract company name
-            name = data.get("entityName", "Unknown Company")
+            name = data.get("name") or data.get("entityName", "Unknown Company")
+            tickers = data.get("tickers", [])
+            exchanges = data.get("exchanges", [])
 
-            # Find available fiscal years from XBRL data
+            # Find available annual filing years from submissions metadata.
             fiscal_years: set[int] = set()
-            for concept_data in company_facts.values():
-                for unit_data in concept_data.get("units", {}).values():
-                    for entry in unit_data:
-                        if "end" in entry:
-                            year_str = entry["end"][:4]
-                            try:
-                                fiscal_years.add(int(year_str))
-                            except ValueError:
-                                pass
+            filings = data.get("filings", {}).get("recent", {})
+            forms = filings.get("form", [])
+            report_dates = filings.get("reportDate", [])
+            filing_dates = filings.get("filingDate", [])
+            for i, form_type in enumerate(forms):
+                if form_type not in {"10-K", "10-K/A"}:
+                    continue
+                date = ""
+                if i < len(report_dates):
+                    date = report_dates[i]
+                if not date and i < len(filing_dates):
+                    date = filing_dates[i]
+                if date:
+                    try:
+                        fiscal_years.add(int(date[:4]))
+                    except ValueError:
+                        pass
 
             sorted_years = sorted(fiscal_years, reverse=True)
 
             return CompanyInfo(
                 name=name,
                 cik=cik_padded,
-                ticker="",  # Would need reverse lookup
-                sic="",  # Not reliably available in this API
-                sector="",  # Would require additional lookup
+                ticker=tickers[0] if tickers else "",
+                sic=str(data.get("sic", "")),
+                sector=exchanges[0] if exchanges else "",
                 fiscal_years_available=sorted_years,
             )
 
@@ -188,7 +264,7 @@ class SECCompanyLookup:
                 raise ImportError("requests library required for SEC API calls")
 
             logger.info(f"Fetching SEC tickers from {self.SEC_TICKERS_URL}")
-            response = requests.get(self.SEC_TICKERS_URL, timeout=10)
+            response = _sec_get(self.SEC_TICKERS_URL, timeout=10)
             response.raise_for_status()
             tickers = response.json()
 
@@ -211,6 +287,7 @@ class SEC10KFetcher:
     """Download 10-K XBRL filings from SEC EDGAR."""
 
     SEC_DATA_API = "https://data.sec.gov/submissions/CIK{cik}.json"
+    SEC_COMPANYFACTS_API = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
     SEC_ARCHIVES = "https://www.sec.gov/Archives"
 
     def __init__(self):
@@ -238,7 +315,7 @@ class SEC10KFetcher:
         try:
             # Fetch filing index
             url = self.SEC_DATA_API.format(cik=cik_padded)
-            response = requests.get(url, timeout=10)
+            response = _sec_get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
 
@@ -261,11 +338,13 @@ class SEC10KFetcher:
                             primary = primary_doc[i] if i < len(primary_doc) else None
 
                             if primary:
+                                cik_no_leading_zeroes = str(int(cik_padded))
                                 xbrl_url = (
-                                    f"{self.SEC_ARCHIVES}/{acc.replace('-', '')}/{primary}"
+                                    f"{self.SEC_ARCHIVES}/edgar/data/"
+                                    f"{cik_no_leading_zeroes}/{acc}/{primary}"
                                 )
                                 logger.info(f"Fetching XBRL from {xbrl_url}")
-                                xbrl_response = requests.get(xbrl_url, timeout=30)
+                                xbrl_response = _sec_get(xbrl_url, timeout=30)
                                 xbrl_response.raise_for_status()
                                 return xbrl_response.text
 
@@ -276,6 +355,27 @@ class SEC10KFetcher:
         except requests.RequestException as e:
             raise FilingNotFoundError(
                 f"Failed to fetch 10-K for CIK {cik}, year {fiscal_year}: {e}"
+            )
+
+    def fetch_companyfacts(self, cik: str) -> Dict:
+        """Fetch SEC companyfacts JSON for structured XBRL facts.
+
+        This endpoint is preferred for deterministic GAAP metric extraction. The
+        10-K primary document is often inline XBRL HTML, while companyfacts is
+        already normalized as SEC JSON.
+        """
+        if requests is None:
+            raise ImportError("requests library required for SEC API calls")
+
+        cik_padded = str(cik).zfill(10)
+        try:
+            url = self.SEC_COMPANYFACTS_API.format(cik=cik_padded)
+            response = _sec_get(url, timeout=20)
+            response.raise_for_status()
+            return response.json()
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            raise FilingNotFoundError(
+                f"Failed to fetch companyfacts for CIK {cik}: {e}"
             )
 
     def fetch_10k_narrative(self, cik: str, fiscal_year: int) -> str:
@@ -307,7 +407,7 @@ class SEC10KFetcher:
 
         try:
             url = self.SEC_DATA_API.format(cik=cik_padded)
-            response = requests.get(url, timeout=10)
+            response = _sec_get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
 
@@ -417,6 +517,57 @@ class XBRLParser:
 
         return results
 
+    def extract_metrics_from_companyfacts(
+        self,
+        companyfacts: Dict,
+        metric_selectors: Dict[str, List[str]],
+        fiscal_year: int,
+    ) -> Dict[str, MetricValue]:
+        """Extract annual metrics from SEC companyfacts JSON.
+
+        Args:
+            companyfacts: Raw JSON from SEC companyfacts endpoint.
+            metric_selectors: Mapping of metric name to candidate concept names.
+            fiscal_year: Fiscal year to extract.
+        """
+        results: Dict[str, MetricValue] = {}
+        facts = companyfacts.get("facts", {})
+
+        for metric_name, concepts in metric_selectors.items():
+            for concept in concepts:
+                fact = self._extract_companyfact(facts, concept, fiscal_year)
+                if fact is None:
+                    continue
+
+                value = fact.get("val")
+                if value is None:
+                    continue
+
+                try:
+                    numeric_value = float(value)
+                except (TypeError, ValueError):
+                    continue
+
+                if abs(numeric_value) > 1_000_000:
+                    numeric_value = numeric_value / 1_000_000
+
+                results[metric_name] = MetricValue(
+                    metric_name=metric_name,
+                    value=numeric_value,
+                    unit=fact.get("unit", "USD"),
+                    fiscal_year=fiscal_year,
+                    xbrl_concept=concept,
+                    source="SEC companyfacts",
+                )
+                break
+
+        logger.info(
+            "Extracted %s metrics from SEC companyfacts for fiscal year %s",
+            len(results),
+            fiscal_year,
+        )
+        return results
+
     def extract_fiscal_year(self, xbrl_content: str) -> int:
         """Extract fiscal year from XBRL."""
         if self.ET is None:
@@ -520,3 +671,43 @@ class XBRLParser:
                     continue
 
         return None
+
+    def _extract_companyfact(
+        self,
+        facts: Dict,
+        concept: str,
+        fiscal_year: int,
+    ) -> Optional[Dict]:
+        """Pick the best matching annual companyfact for a concept."""
+
+        concept_name = concept.split(":")[-1]
+        concept_data = None
+        for namespace_facts in facts.values():
+            if concept_name in namespace_facts:
+                concept_data = namespace_facts[concept_name]
+                break
+
+        if not concept_data:
+            return None
+
+        candidates = []
+        for unit, entries in concept_data.get("units", {}).items():
+            for entry in entries:
+                if entry.get("fy") != fiscal_year:
+                    continue
+                if entry.get("form") not in {"10-K", "10-K/A"}:
+                    continue
+                enriched = dict(entry)
+                enriched["unit"] = unit
+                candidates.append(enriched)
+
+        if not candidates:
+            return None
+
+        def sort_key(entry: Dict):
+            fp_rank = 1 if entry.get("fp") == "FY" else 0
+            filed = entry.get("filed", "")
+            end = entry.get("end", "")
+            return (fp_rank, filed, end)
+
+        return sorted(candidates, key=sort_key, reverse=True)[0]
