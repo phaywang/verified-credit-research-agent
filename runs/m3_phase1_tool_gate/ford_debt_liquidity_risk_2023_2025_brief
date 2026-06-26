@@ -1,0 +1,43 @@
+{
+  "evidence_chunks": [
+    "F_2023_10K_debt_009",
+    "F_2025_10K_debt_008",
+    "F_2023_10K_mda_027",
+    "F_2025_10K_mda_028",
+    "F_2023_10K_credit_facilities_002",
+    "F_2025_10K_credit_facilities_002"
+  ],
+  "guardrail_status": "PASS \u2014 0 blocked claims",
+  "prepared_by": "Verified Credit Research Agent",
+  "sources": [
+    "https://www.sec.gov/Archives/edgar/data/37996/000003799624000009/f-20231231.htm",
+    "https://www.sec.gov/Archives/edgar/data/37996/000003799626000015/f-20251231.htm"
+  ],
+  "title": "Ford Motor Company \u2014 Debt & Liquidity Risk Change: 2023 vs. 2025",
+  "verified_claims": [
+    {
+      "change_B": 1.975,
+      "claim_id": "claim_company_debt_excluding_ford_credit_2023_2025",
+      "new_value_B": 21.919,
+      "old_value_B": 19.944,
+      "pct_change": 9.9,
+      "status": "verified"
+    },
+    {
+      "change_B": 5.073,
+      "claim_id": "claim_company_debt_payable_within_one_year_2023_2025",
+      "new_value_B": 5.55,
+      "old_value_B": 0.477,
+      "pct_change": 1063.52,
+      "status": "verified"
+    },
+    {
+      "change_B": -3.098,
+      "claim_id": "claim_company_long_term_debt_payable_after_one_year_2023_2025",
+      "new_value_B": 16.369,
+      "old_value_B": 19.467,
+      "pct_change": -15.91,
+      "status": "verified"
+    }
+  ]
+}

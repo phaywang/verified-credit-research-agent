@@ -1,0 +1,164 @@
+# Metric extraction mapping: defines how to extract financial metrics from SEC filings
+# Used by numeric verification and evidence extraction
+
+metrics:
+  # Debt metrics
+  total_debt:
+    description: "Total debt (short-term + long-term)"
+    xbrl_selectors:
+      - concept: "DebtLongtermAndShorttermCombinedAmountCompanyExcludingFordCredit"
+        # Ford-specific: debt excluding Ford Credit subsidiary
+        companies: ["ford"]
+      - concept: "DebtAndFinancingArrangementsAmount"
+        # General fallback for other companies
+    text_patterns:
+      - "total debt"
+      - "total.*debt.*excluding.*credit"
+    unit: "USD"
+
+  current_debt:
+    description: "Short-term debt payable within one year"
+    xbrl_selectors:
+      - concept: "DebtCurrent"
+      - concept: "ShortTermBorrowings"
+      - concept: "CurrentPortionOfLongTermDebt"
+    text_patterns:
+      - "current.*debt"
+      - "debt.*payable.*within.*one year"
+      - "short.*term.*borrowings"
+    unit: "USD"
+
+  long_term_debt:
+    description: "Long-term debt payable after one year"
+    xbrl_selectors:
+      - concept: "LongTermDebt"
+      - concept: "DebtNonCurrent"
+    text_patterns:
+      - "long.*term.*debt"
+      - "noncurrent.*debt"
+    unit: "USD"
+
+  # Liquidity metrics
+  cash_and_equivalents:
+    description: "Cash and cash equivalents"
+    xbrl_selectors:
+      - concept: "Cash"
+      - concept: "CashAndCashEquivalentAtCarryingValue"
+    text_patterns:
+      - "cash.*cash equivalents"
+      - "cash and.*equivalents"
+    unit: "USD"
+
+  available_liquidity:
+    description: "Total available liquidity (cash + credit lines)"
+    xbrl_selectors: []
+    text_patterns:
+      - "available.*liquidity"
+      - "liquidity.*sources"
+    unit: "USD"
+    note: "Often calculated or narrative; verify via evidence"
+
+  # Equity metrics
+  shareholders_equity:
+    description: "Total shareholders' equity"
+    xbrl_selectors:
+      - concept: "StockholdersEquity"
+      - concept: "ShareholdersEquity"
+    text_patterns:
+      - "shareholders.*equity"
+      - "stockholders.*equity"
+      - "total equity"
+    unit: "USD"
+
+  # Income statement metrics
+  interest_expense:
+    description: "Interest expense on debt"
+    xbrl_selectors:
+      - concept: "InterestExpense"
+      - concept: "InterestAndDebtExpense"
+    text_patterns:
+      - "interest.*expense"
+      - "interest.*paid"
+    unit: "USD"
+
+  net_income:
+    description: "Net income / earnings"
+    xbrl_selectors:
+      - concept: "NetIncomeLoss"
+      - concept: "NetIncome"
+    text_patterns:
+      - "net income"
+      - "net earnings"
+    unit: "USD"
+
+  # Cash flow metrics
+  operating_cash_flow:
+    description: "Cash flow from operations"
+    xbrl_selectors:
+      - concept: "NetCashProvidedByUsedInOperatingActivities"
+      - concept: "CashFlowFromOperatingActivities"
+    text_patterns:
+      - "operating.*activities"
+      - "cash.*provided.*operating"
+    unit: "USD"
+
+  capital_expenditures:
+    description: "Capital expenditures / investing activities"
+    xbrl_selectors:
+      - concept: "PaymentForCapitalExpenditures"
+      - concept: "CapitalExpenditures"
+    text_patterns:
+      - "capital.*expenditures"
+      - "investing.*activities"
+    unit: "USD"
+
+  # Balance sheet metrics
+  current_assets:
+    description: "Current assets"
+    xbrl_selectors:
+      - concept: "AssetsCurrent"
+      - concept: "CurrentAssets"
+    text_patterns:
+      - "current assets"
+    unit: "USD"
+
+  current_liabilities:
+    description: "Current liabilities"
+    xbrl_selectors:
+      - concept: "LiabilitiesCurrent"
+      - concept: "CurrentLiabilities"
+    text_patterns:
+      - "current liabilities"
+    unit: "USD"
+
+  inventory:
+    description: "Inventory"
+    xbrl_selectors:
+      - concept: "InventoryNet"
+      - concept: "Inventory"
+    text_patterns:
+      - "inventories?"
+      - "finished.*goods"
+    unit: "USD"
+
+# Calculated metrics (derived from above)
+calculated_metrics:
+  debt_to_equity:
+    formula: "total_debt / shareholders_equity"
+    description: "Debt-to-equity ratio"
+
+  current_ratio:
+    formula: "current_assets / current_liabilities"
+    description: "Current ratio (short-term solvency)"
+
+  quick_ratio:
+    formula: "(current_assets - inventory) / current_liabilities"
+    description: "Quick ratio (liquidity without inventory)"
+
+  interest_coverage:
+    formula: "net_income / interest_expense"
+    description: "Interest coverage ratio (ability to pay interest)"
+
+  free_cash_flow:
+    formula: "operating_cash_flow - capital_expenditures"
+    description: "Free cash flow available for debt service/dividends"

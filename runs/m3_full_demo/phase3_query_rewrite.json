@@ -1,0 +1,17 @@
+{
+  "fallback_used": false,
+  "reasoning_summary": "Original query 'Ford debt risk' was too broad. Rewrite targets the two identified coverage gaps: (1) 2025 management explanation sourced from MD&A sections where executives discuss debt strategy and risk factors, and (2) liquidity evidence sourced from Liquidity and Capital Resources disclosures, cash flow statements, and credit facility footnotes. Years 2023 and 2025 are explicitly scoped to anchor retrieval to the required filing periods.",
+  "rewritten_query": "Ford Motor Company 10-K and 10-Q SEC filings 2023 2025 management discussion analysis liquidity capital resources debt obligations credit facilities cash flow adequacy going concern",
+  "target_sections": [
+    "Management Discussion and Analysis (MD&A)",
+    "Liquidity and Capital Resources",
+    "Risk Factors \u2013 Debt and Financing",
+    "Notes to Financial Statements \u2013 Long-Term Debt",
+    "Notes to Financial Statements \u2013 Credit Facilities",
+    "Cash Flow Statement \u2013 Financing Activities"
+  ],
+  "target_years": [
+    2023,
+    2025
+  ]
+}

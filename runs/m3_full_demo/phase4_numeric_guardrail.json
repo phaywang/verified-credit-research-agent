@@ -1,0 +1,182 @@
+{
+  "blocked_claims": [],
+  "blocked_count": 0,
+  "checked_numbers": [
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "$19.944B",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "$21.919B",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "$1.975B",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "9.9%",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "$0.477B",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "$5.550B",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "$5.073B",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "$19.467B",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "$16.369B",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "$3.098B",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total Company debt excluding Ford Credit rose from $19.944B in 2023 to $21.919B in 2025 [verified: claim_company_debt_excluding_ford_credit_2023_2025], an increase of $1.975B or 9.9%. The more consequential change was in the maturity structure. Debt payable within one year increased from $0.477B in 2023 to $5.550B in 2025 [verified: claim_company_debt_payable_within_one_year_2023_2025], a rise of $5.073B. Simultaneously, long-term debt payable after one year fell from $19.467B in 2023 to $16.369B in 2025 [verified: claim_company_long_term_debt_payable_after_one_year_2023_2025], a reduction of $3.098B or 15.9%. This rotation from long-dated to short-dated obligations materially elevates near-term refinancing and rollover risk.",
+      "number": "15.9%",
+      "verified_tags": [
+        "claim_company_debt_excluding_ford_credit_2023_2025",
+        "claim_company_debt_payable_within_one_year_2023_2025",
+        "claim_company_long_term_debt_payable_after_one_year_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total balance sheet cash, marketable securities, and restricted cash declined from $40.400B in 2023 to $38.900B in 2025 [verified: claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025], a decrease of $1.500B. Despite this, total Company liquidity rose from $46.400B in 2023 to $49.800B in 2025 [verified: claim_company_liquidity_2023_2025], an increase of $3.400B or 7.3%. The divergence between falling cash and rising total liquidity indicates Ford expanded its undrawn committed credit facility capacity over the period, which provides a buffer but is contingent on facility availability and covenant compliance.",
+      "number": "$40.400B",
+      "verified_tags": [
+        "claim_company_liquidity_2023_2025",
+        "claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total balance sheet cash, marketable securities, and restricted cash declined from $40.400B in 2023 to $38.900B in 2025 [verified: claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025], a decrease of $1.500B. Despite this, total Company liquidity rose from $46.400B in 2023 to $49.800B in 2025 [verified: claim_company_liquidity_2023_2025], an increase of $3.400B or 7.3%. The divergence between falling cash and rising total liquidity indicates Ford expanded its undrawn committed credit facility capacity over the period, which provides a buffer but is contingent on facility availability and covenant compliance.",
+      "number": "$38.900B",
+      "verified_tags": [
+        "claim_company_liquidity_2023_2025",
+        "claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total balance sheet cash, marketable securities, and restricted cash declined from $40.400B in 2023 to $38.900B in 2025 [verified: claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025], a decrease of $1.500B. Despite this, total Company liquidity rose from $46.400B in 2023 to $49.800B in 2025 [verified: claim_company_liquidity_2023_2025], an increase of $3.400B or 7.3%. The divergence between falling cash and rising total liquidity indicates Ford expanded its undrawn committed credit facility capacity over the period, which provides a buffer but is contingent on facility availability and covenant compliance.",
+      "number": "$1.500B",
+      "verified_tags": [
+        "claim_company_liquidity_2023_2025",
+        "claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total balance sheet cash, marketable securities, and restricted cash declined from $40.400B in 2023 to $38.900B in 2025 [verified: claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025], a decrease of $1.500B. Despite this, total Company liquidity rose from $46.400B in 2023 to $49.800B in 2025 [verified: claim_company_liquidity_2023_2025], an increase of $3.400B or 7.3%. The divergence between falling cash and rising total liquidity indicates Ford expanded its undrawn committed credit facility capacity over the period, which provides a buffer but is contingent on facility availability and covenant compliance.",
+      "number": "$46.400B",
+      "verified_tags": [
+        "claim_company_liquidity_2023_2025",
+        "claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total balance sheet cash, marketable securities, and restricted cash declined from $40.400B in 2023 to $38.900B in 2025 [verified: claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025], a decrease of $1.500B. Despite this, total Company liquidity rose from $46.400B in 2023 to $49.800B in 2025 [verified: claim_company_liquidity_2023_2025], an increase of $3.400B or 7.3%. The divergence between falling cash and rising total liquidity indicates Ford expanded its undrawn committed credit facility capacity over the period, which provides a buffer but is contingent on facility availability and covenant compliance.",
+      "number": "$49.800B",
+      "verified_tags": [
+        "claim_company_liquidity_2023_2025",
+        "claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total balance sheet cash, marketable securities, and restricted cash declined from $40.400B in 2023 to $38.900B in 2025 [verified: claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025], a decrease of $1.500B. Despite this, total Company liquidity rose from $46.400B in 2023 to $49.800B in 2025 [verified: claim_company_liquidity_2023_2025], an increase of $3.400B or 7.3%. The divergence between falling cash and rising total liquidity indicates Ford expanded its undrawn committed credit facility capacity over the period, which provides a buffer but is contingent on facility availability and covenant compliance.",
+      "number": "$3.400B",
+      "verified_tags": [
+        "claim_company_liquidity_2023_2025",
+        "claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025"
+      ]
+    },
+    {
+      "bound_to_verified_claim": true,
+      "line": "Total balance sheet cash, marketable securities, and restricted cash declined from $40.400B in 2023 to $38.900B in 2025 [verified: claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025], a decrease of $1.500B. Despite this, total Company liquidity rose from $46.400B in 2023 to $49.800B in 2025 [verified: claim_company_liquidity_2023_2025], an increase of $3.400B or 7.3%. The divergence between falling cash and rising total liquidity indicates Ford expanded its undrawn committed credit facility capacity over the period, which provides a buffer but is contingent on facility availability and covenant compliance.",
+      "number": "7.3%",
+      "verified_tags": [
+        "claim_company_liquidity_2023_2025",
+        "claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025"
+      ]
+    }
+  ],
+  "financial_numbers_checked": 18,
+  "reasoning_summary": "Financial quantities require same-line [verified: claim_id] bindings; standalone years and generic counts are ignored.",
+  "severity": "pass"
+}

@@ -1,0 +1,92 @@
+# Risk theme definitions for multi-theme credit research framework
+
+risk_themes:
+  debt_liquidity:
+    description: "Debt level changes and liquidity position"
+    required_evidence_categories:
+      - debt
+      - liquidity
+      - management_explanation
+      - numeric_facts
+    required_sections:
+      - "Consolidated Balance Sheet"
+      - "Consolidated Statement of Cash Flows"
+      - "Liquidity and Capital Resources"
+      - "Debt and Commitments"
+      - "Management's Discussion and Analysis"
+    key_metrics:
+      - "total_debt"
+      - "current_debt"
+      - "long_term_debt"
+      - "cash_and_equivalents"
+      - "available_liquidity"
+    comparison_years: 2
+    rules:
+      - "verified_numeric_changes_must_appear_in_conclusions"
+      - "unsupported_numeric_claims_must_be_excluded"
+
+  leverage_analysis:
+    description: "Debt-to-equity and leverage ratios"
+    required_evidence_categories:
+      - debt
+      - equity
+      - interest_expense
+      - numeric_facts
+    required_sections:
+      - "Consolidated Balance Sheet"
+      - "Consolidated Statement of Income"
+      - "Management's Discussion and Analysis"
+    key_metrics:
+      - "total_debt"
+      - "shareholders_equity"
+      - "long_term_debt"
+      - "interest_expense"
+      - "earnings"
+    comparison_years: 2
+    rules:
+      - "leverage_ratios_must_be_calculated_and_verified"
+      - "interest_coverage_must_support_solvency_conclusion"
+
+  solvency_assessment:
+    description: "Short-term solvency and liquidity ratios"
+    required_evidence_categories:
+      - liquidity
+      - working_capital
+      - cash_flow
+      - numeric_facts
+    required_sections:
+      - "Consolidated Balance Sheet"
+      - "Consolidated Statement of Cash Flows"
+      - "Management's Discussion and Analysis"
+    key_metrics:
+      - "current_assets"
+      - "current_liabilities"
+      - "inventory"
+      - "operating_cash_flow"
+      - "free_cash_flow"
+    comparison_years: 2
+    rules:
+      - "current_ratio_and_quick_ratio_must_be_calculated"
+      - "cash_flow_trends_must_support_solvency_conclusion"
+
+  cash_flow_coverage:
+    description: "Cash flow adequacy and coverage ratios"
+    required_evidence_categories:
+      - cash_flow
+      - debt_service
+      - capital_expenditure
+      - dividend_payment
+    required_sections:
+      - "Consolidated Statement of Cash Flows"
+      - "Management's Discussion and Analysis"
+      - "Liquidity and Capital Resources"
+    key_metrics:
+      - "operating_cash_flow"
+      - "capital_expenditures"
+      - "free_cash_flow"
+      - "total_debt_service"
+      - "dividend_payments"
+    comparison_years: 2
+    rules:
+      - "cash_flow_coverage_ratios_must_be_calculated"
+      - "adequacy_assessment_must_be_evidence_based"
