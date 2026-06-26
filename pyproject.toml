@@ -12,6 +12,7 @@ dependencies = [
   "rank-bm25>=0.2.2",
   "requests>=2.31.0",
   "sentence-transformers>=5.0.0",
+  "streamlit>=1.30.0",
 ]
 
 [tool.setuptools.packages.find]

@@ -117,6 +117,31 @@ The release demo artifacts are copied into [examples/m3_full_demo](examples/m3_f
 
 The original run artifacts remain under `runs/m3_full_demo/`.
 
+## M4 Static Demo UI
+
+M4 adds a lightweight Streamlit presentation layer over the frozen M3 release artifacts.
+
+Run:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+The first UI mode is static artifact mode. It loads files from `examples/m3_full_demo/` and does not require Bedrock credentials.
+
+The UI shows:
+
+- Project overview and milestone evolution.
+- Why this is not a normal RAG bot.
+- Final credit research brief.
+- M3 trace metrics.
+- Phase 4 ReAct tool call timeline.
+- Numeric guardrail result.
+- Semantic critic result.
+- Architecture flow.
+
+See [docs/ui_demo.md](docs/ui_demo.md) for UI details.
+
 ## Local Verification
 
 Run the test suite:
