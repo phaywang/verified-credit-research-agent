@@ -25,6 +25,7 @@ ARTIFACT_FILENAMES = {
     "critic_report": "critic_report.json",
     "trace_log": "trace_log.json",
     "final_answer": "final_answer.md",
+    "memory_update": "memory_update.json",
 }
 
 

@@ -166,7 +166,9 @@ class LoopController:
             iterations_run = iteration
             top_n, top_k = self._retrieval_sizes(iteration)
             state = "RETRIEVE" if iteration == 1 else "RETRIEVE_AGAIN"
-            filters = RetrievalFilters(years=[2023]) if self.force_rewrite_demo and iteration == 1 else None
+            # Only use year filter on first iteration when memory is not being used
+            # (memory provides strong queries that don't need the filter to demonstrate rewrite)
+            filters = RetrievalFilters(years=[2023]) if self.force_rewrite_demo and iteration == 1 and not memory_used else None
             candidates = retriever.retrieve(query, top_n=top_n, filters=filters)
             all_retrieved.extend(candidates)
             trace.log_step(
@@ -407,11 +409,16 @@ class LoopController:
                 for result in verification_results
                 if result.status == "verified"
             ]
+            # Use the last successful query: if there were rewrites, use the last rewritten query
+            # Otherwise use the initial selected query
+            successful_query_to_save = (
+                query_rewrites[-1]["new_query"] if query_rewrites else selected_query
+            )
             memory_summary = MemoryRunSummary(
                 company="Ford Motor Company",
                 ticker="F",
                 risk_theme="debt_liquidity",
-                successful_query=selected_query,
+                successful_query=successful_query_to_save,
                 failed_queries=[r["old_query"] for r in query_rewrites],
                 useful_sections=[chunk.section_name for chunk in all_evidence if chunk.section_name],
                 verified_metrics=verified_metrics,
