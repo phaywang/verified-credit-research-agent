@@ -6,7 +6,14 @@ from collections import defaultdict
 from typing import Dict, Iterable, List, Optional
 
 from credit_research_agent.agent.evidence_checker import is_management_explanation
-from credit_research_agent.schemas import AnswerClaim, EvidenceChunk, EvidenceCoverage, FinalAnswer, TaskSpec
+from credit_research_agent.schemas import (
+    AnswerClaim,
+    EvidenceChunk,
+    EvidenceCoverage,
+    FinalAnswer,
+    NumericVerificationResult,
+    TaskSpec,
+)
 
 
 def _citation(chunk: EvidenceChunk) -> str:
@@ -47,11 +54,85 @@ def _claim(text: str, chunks: List[EvidenceChunk]) -> AnswerClaim:
     )
 
 
+def _numeric_claim(text: str, result: NumericVerificationResult) -> AnswerClaim:
+    return AnswerClaim(
+        claim=text,
+        citation_chunk_ids=[
+            str(item["source_chunk_id"])
+            for item in result.evidence
+            if item.get("source_chunk_id")
+        ],
+        support_status="supported",
+    )
+
+
+def _money(value: Optional[float], decimals: int = 3) -> str:
+    if value is None:
+        return "n/a"
+    return f"${value:.{decimals}f}B"
+
+
+def _change(value: Optional[float]) -> str:
+    if value is None:
+        return "n/a"
+    if value < 0:
+        return f"-${abs(value):.3f}B"
+    sign = "+" if value > 0 else ""
+    return f"{sign}${value:.3f}B"
+
+
+def _pct(value: Optional[float]) -> str:
+    if value is None:
+        return "n/a"
+    sign = "+" if value > 0 else ""
+    return f"{sign}{value:.2f}%"
+
+
+def _numeric_citations(result: NumericVerificationResult) -> str:
+    seen = set()
+    citations = []
+    for item in result.evidence:
+        chunk_id = item.get("source_chunk_id")
+        source_url = item.get("source_url")
+        if not chunk_id or not source_url or chunk_id in seen:
+            continue
+        seen.add(chunk_id)
+        citations.append(f"[{chunk_id}]({source_url})")
+    return " ".join(citations)
+
+
+def _combined_numeric_citations(results: List[NumericVerificationResult]) -> str:
+    seen = set()
+    citations = []
+    for result in results:
+        for item in result.evidence:
+            chunk_id = item.get("source_chunk_id")
+            source_url = item.get("source_url")
+            if not chunk_id or not source_url or chunk_id in seen:
+                continue
+            seen.add(chunk_id)
+            citations.append(f"[{chunk_id}]({source_url})")
+    return " ".join(citations)
+
+
+def _verified_by_metric(
+    verification_results: Optional[List[NumericVerificationResult]],
+) -> Dict[str, NumericVerificationResult]:
+    if not verification_results:
+        return {}
+    return {
+        result.metric_name: result
+        for result in verification_results
+        if result.status == "verified"
+    }
+
+
 def synthesize_final_answer(
     task_spec: TaskSpec,
     evidence: List[EvidenceChunk],
     coverage: EvidenceCoverage,
     trace_log_path: str,
+    verification_results: Optional[List[NumericVerificationResult]] = None,
 ) -> FinalAnswer:
     """Create a concise cited credit research brief from selected evidence."""
 
@@ -90,6 +171,7 @@ def synthesize_final_answer(
         {"mda"},
         ["we manage", "we expect", "primarily due to", "driven by", "reflecting", "explained by", "remains well capitalized"],
     )
+    verified = _verified_by_metric(verification_results)
 
     lines = [
         "# Ford Debt and Liquidity Risk Brief",
@@ -99,7 +181,46 @@ def synthesize_final_answer(
 
     claims: List[AnswerClaim] = []
     cited_summary_chunks = [chunk for chunk in [liq_2023, liq_2025, debt_2023, debt_2025] if chunk]
-    if debt_2023 and debt_2025 and liq_2023 and liq_2025:
+    if verified:
+        debt_total = verified.get("company_debt_excluding_ford_credit")
+        current_debt = verified.get("company_debt_payable_within_one_year")
+        noncurrent_debt = verified.get("company_long_term_debt_payable_after_one_year")
+        total_cash = verified.get("total_balance_sheet_cash_and_marketable_securities_restricted_cash")
+        company_liquidity = verified.get("company_liquidity")
+        summary_parts = []
+        if debt_total:
+            summary_parts.append(
+                "Company debt excluding Ford Credit increased "
+                f"from {_money(debt_total.old_value)} in {debt_total.old_year} "
+                f"to {_money(debt_total.new_value)} in {debt_total.new_year}."
+            )
+        if current_debt and noncurrent_debt:
+            summary_parts.append(
+                "The more credit-relevant movement was maturity mix: debt payable within one year rose sharply while long-term debt after one year declined, indicating more near-term refinancing/rollover exposure."
+            )
+        if total_cash and company_liquidity:
+            summary_parts.append(
+                "Liquidity evidence is mixed by scope: total cash/marketable securities/restricted cash declined, while Company liquidity excluding Ford Credit increased."
+            )
+        if summary_parts:
+            lines.append(" ".join(summary_parts))
+            cited_results = [
+                result for result in [debt_total, current_debt, noncurrent_debt, total_cash, company_liquidity] if result
+            ]
+            cited_ids = [
+                str(item["source_chunk_id"])
+                for result in cited_results
+                for item in result.evidence
+                if item.get("source_chunk_id")
+            ]
+            claims.append(
+                AnswerClaim(
+                    claim="Verified numeric evidence supports a mixed Ford debt/liquidity risk conclusion.",
+                    citation_chunk_ids=sorted(set(cited_ids)),
+                    support_status="supported",
+                )
+            )
+    elif debt_2023 and debt_2025 and liq_2023 and liq_2025:
         lines.append(
             "Ford's filings provide evidence for both years on liquidity resources and debt exposure, "
             "including Liquidity and Capital Resources disclosures and Debt and Commitments note disclosures. "
@@ -128,38 +249,108 @@ def synthesize_final_answer(
         )
 
     lines.extend(["", "## Debt Risk Changes"])
-    if debt_2023:
-        lines.append(
-            f"- 2023 debt evidence: {_preview(debt_2023)} {_citation(debt_2023)}"
+    debt_total = verified.get("company_debt_excluding_ford_credit")
+    current_debt = verified.get("company_debt_payable_within_one_year")
+    noncurrent_debt = verified.get("company_long_term_debt_payable_after_one_year")
+    short_term = verified.get("company_short_term_borrowings")
+    if debt_total:
+        text = (
+            "Company debt excluding Ford Credit increased "
+            f"from {_money(debt_total.old_value)} in {debt_total.old_year} "
+            f"to {_money(debt_total.new_value)} in {debt_total.new_year}, "
+            f"a {_change(debt_total.absolute_change)} change ({_pct(debt_total.percentage_change)})."
         )
-        claims.append(_claim("2023 debt evidence was retrieved from Ford's debt disclosures.", [debt_2023]))
-    if debt_2025:
-        lines.append(
-            f"- 2025 debt evidence: {_preview(debt_2025)} {_citation(debt_2025)}"
+        lines.append(f"- {text} {_numeric_citations(debt_total)}")
+        claims.append(_numeric_claim(text, debt_total))
+    if current_debt and noncurrent_debt:
+        text = (
+            "Ford's Company excluding Ford Credit maturity mix worsened: debt payable within one year rose "
+            f"from {_money(current_debt.old_value)} to {_money(current_debt.new_value)} "
+            f"({_change(current_debt.absolute_change)}, {_pct(current_debt.percentage_change)}), while long-term debt payable after one year fell "
+            f"from {_money(noncurrent_debt.old_value)} to {_money(noncurrent_debt.new_value)} "
+            f"({_change(noncurrent_debt.absolute_change)}, {_pct(noncurrent_debt.percentage_change)}). "
+            "This combination points to higher near-term refinancing or rollover pressure, even though it does not by itself prove a liquidity shortfall."
         )
-        claims.append(_claim("2025 debt evidence was retrieved from Ford's debt disclosures.", [debt_2025]))
+        lines.append(
+            f"- {text} {_combined_numeric_citations([current_debt, noncurrent_debt])}"
+        )
+        claims.append(
+            AnswerClaim(
+                claim=text,
+                citation_chunk_ids=sorted(
+                    {
+                        str(item["source_chunk_id"])
+                        for result in [current_debt, noncurrent_debt]
+                        for item in result.evidence
+                        if item.get("source_chunk_id")
+                    }
+                ),
+                support_status="supported",
+            )
+        )
+    if short_term:
+        text = (
+            "Company excluding Ford Credit short-term borrowings increased "
+            f"from {_money(short_term.old_value)} to {_money(short_term.new_value)}, "
+            f"a {_change(short_term.absolute_change)} change ({_pct(short_term.percentage_change)})."
+        )
+        lines.append(f"- {text} {_numeric_citations(short_term)}")
+        claims.append(_numeric_claim(text, short_term))
+    if not any([debt_total, current_debt, noncurrent_debt, short_term]):
+        if debt_2023:
+            lines.append(f"- 2023 debt evidence: {_preview(debt_2023)} {_citation(debt_2023)}")
+            claims.append(_claim("2023 debt evidence was retrieved from Ford's debt disclosures.", [debt_2023]))
+        if debt_2025:
+            lines.append(f"- 2025 debt evidence: {_preview(debt_2025)} {_citation(debt_2025)}")
+            claims.append(_claim("2025 debt evidence was retrieved from Ford's debt disclosures.", [debt_2025]))
 
     lines.extend(["", "## Liquidity Risk Changes"])
-    if liq_2023:
-        lines.append(
-            f"- 2023 liquidity evidence: {_preview(liq_2023)} {_citation(liq_2023)}"
+    liquidity_results = [
+        verified.get("total_balance_sheet_cash_and_marketable_securities_restricted_cash"),
+        verified.get("company_cash"),
+        verified.get("company_liquidity"),
+        verified.get("ford_credit_net_liquidity_available_for_use"),
+        verified.get("ford_credit_liquidity_sources"),
+        verified.get("ford_credit_committed_capacity"),
+    ]
+    liquidity_results = [result for result in liquidity_results if result]
+    for result in liquidity_results:
+        text = (
+            f"{_liquidity_label(result.metric_name)} changed from "
+            f"{_money(result.old_value)} in {result.old_year} to {_money(result.new_value)} in {result.new_year}, "
+            f"a {_change(result.absolute_change)} change ({_pct(result.percentage_change)})."
         )
-        claims.append(_claim("2023 liquidity evidence was retrieved from Liquidity and Capital Resources.", [liq_2023]))
-    if liq_2025:
-        lines.append(
-            f"- 2025 liquidity evidence: {_preview(liq_2025)} {_citation(liq_2025)}"
+        lines.append(f"- {text} {_numeric_citations(result)}")
+        claims.append(_numeric_claim(text, result))
+    if verified.get("total_balance_sheet_cash_and_marketable_securities_restricted_cash") and verified.get("company_liquidity"):
+        total_cash = verified["total_balance_sheet_cash_and_marketable_securities_restricted_cash"]
+        company_liquidity = verified["company_liquidity"]
+        text = (
+            "The liquidity conclusion is mixed by scope: total cash, cash equivalents, marketable securities, and restricted cash declined, "
+            "but Company liquidity excluding Ford Credit increased. The brief therefore does not label Ford's overall liquidity risk as simply improved or deteriorated."
         )
-        claims.append(_claim("2025 liquidity evidence was retrieved from Liquidity and Capital Resources.", [liq_2025]))
-    if credit_2023:
-        lines.append(
-            f"- 2023 credit facility evidence: {_preview(credit_2023)} {_citation(credit_2023)}"
+        lines.append(f"- {text} {_combined_numeric_citations([total_cash, company_liquidity])}")
+        claims.append(
+            AnswerClaim(
+                claim=text,
+                citation_chunk_ids=sorted(
+                    {
+                        str(item["source_chunk_id"])
+                        for result in [total_cash, company_liquidity]
+                        for item in result.evidence
+                        if item.get("source_chunk_id")
+                    }
+                ),
+                support_status="supported",
+            )
         )
-        claims.append(_claim("2023 credit facility evidence was retrieved.", [credit_2023]))
-    if credit_2025:
-        lines.append(
-            f"- 2025 credit facility evidence: {_preview(credit_2025)} {_citation(credit_2025)}"
-        )
-        claims.append(_claim("2025 credit facility evidence was retrieved.", [credit_2025]))
+    if not liquidity_results:
+        if liq_2023:
+            lines.append(f"- 2023 liquidity evidence: {_preview(liq_2023)} {_citation(liq_2023)}")
+            claims.append(_claim("2023 liquidity evidence was retrieved from Liquidity and Capital Resources.", [liq_2023]))
+        if liq_2025:
+            lines.append(f"- 2025 liquidity evidence: {_preview(liq_2025)} {_citation(liq_2025)}")
+            claims.append(_claim("2025 liquidity evidence was retrieved from Liquidity and Capital Resources.", [liq_2025]))
 
     lines.extend(["", "## Management Explanation From Filings"])
     displayed_management = [
@@ -176,17 +367,19 @@ def synthesize_final_answer(
     else:
         lines.append("- Management explanation coverage was not fully satisfied by retrieved evidence.")
 
-    lines.extend(["", "## Key Numeric Evidence Observed"])
-    numeric_chunks = [
-        chunk
-        for chunk in [liq_2023, liq_2025, debt_2023, debt_2025, credit_2023, credit_2025]
-        if chunk
-    ]
-    for chunk in numeric_chunks:
-        lines.append(f"- {chunk.fiscal_year} / {chunk.section_name}: {_preview(chunk, 180)} {_citation(chunk)}")
-    lines.append(
-        "- Milestone 1 cites numeric disclosures but does not perform deterministic numeric verification or derived calculations."
-    )
+    lines.extend(["", "## Key Numeric Changes"])
+    lines.append("| Metric | 2023 | 2025 | Change | % Change | Status | Sources |")
+    lines.append("|---|---:|---:|---:|---:|---|---|")
+    if verification_results:
+        for result in verification_results:
+            if result.status != "verified":
+                continue
+            lines.append(
+                f"| {_metric_label(result.metric_name)} | {_money(result.old_value)} | {_money(result.new_value)} | "
+                f"{_change(result.absolute_change)} | {_pct(result.percentage_change)} | verified | {_numeric_citations(result)} |"
+            )
+    else:
+        lines.append("| No verified numeric results | n/a | n/a | n/a | n/a | not verified | n/a |")
 
     lines.extend(["", "## Evidence Table", "| Chunk | Year | Section | Reranker | Evidence |", "|---|---:|---|---:|---|"])
     for chunk in evidence[:12]:
@@ -204,12 +397,25 @@ def synthesize_final_answer(
         lines.append(
             f"- Confidence: limited because evidence coverage decision was `{coverage.decision}` and missing fields were: {', '.join(coverage.missing)}."
         )
-    lines.append("- Numeric comparisons should be verified in Milestone 2 before being treated as final analytical calculations.")
+    if verification_results:
+        lines.append("- Numeric comparisons in the analytical sections are included only when deterministic verification returned `verified`.")
+        blocked = [
+            result for result in verification_results if result.status != "verified"
+        ]
+        lines.append(
+            "- Low-confidence table-derived duplicates and deferred maturity-bucket facts were excluded from conclusion sentences."
+        )
+        if blocked:
+            lines.append(
+                f"- Numeric critic flagged {len(blocked)} candidate claim(s) as not verified; these were excluded from analytical conclusions."
+            )
+    else:
+        lines.append("- Numeric comparisons should be verified before being treated as final analytical calculations.")
 
     lines.extend(["", "## Follow-up Questions for Analyst Review"])
     lines.append("- Which debt scope should drive the credit conclusion: Company excluding Ford Credit, Ford Credit, or consolidated debt?")
     lines.append("- Should liquidity risk be assessed using company liquidity, total balance sheet cash, Ford Credit liquidity, or all three?")
-    lines.append("- Which numeric claims should be promoted to verified claims in Milestone 2?")
+    lines.append("- Should the analyst weight near-term debt migration more heavily than the increase in Company liquidity when assessing refinancing risk?")
 
     lines.extend(["", "## Trace Log", f"- {trace_log_path}"])
 
@@ -218,3 +424,23 @@ def synthesize_final_answer(
         claims=claims,
         trace_log_path=trace_log_path,
     )
+
+
+def _metric_label(metric_name: str) -> str:
+    labels = {
+        "company_debt_excluding_ford_credit": "Company debt excluding Ford Credit",
+        "company_debt_payable_within_one_year": "Company debt payable within one year excluding Ford Credit",
+        "company_long_term_debt_payable_after_one_year": "Company long-term debt payable after one year excluding Ford Credit",
+        "company_short_term_borrowings": "Company short-term borrowings excluding Ford Credit",
+        "total_balance_sheet_cash_and_marketable_securities_restricted_cash": "Total cash, cash equivalents, marketable securities, and restricted cash",
+        "company_cash": "Company cash excluding Ford Credit",
+        "company_liquidity": "Company liquidity excluding Ford Credit",
+        "ford_credit_net_liquidity_available_for_use": "Ford Credit net liquidity available for use",
+        "ford_credit_liquidity_sources": "Ford Credit liquidity sources",
+        "ford_credit_committed_capacity": "Ford Credit committed capacity",
+    }
+    return labels.get(metric_name, metric_name.replace("_", " "))
+
+
+def _liquidity_label(metric_name: str) -> str:
+    return _metric_label(metric_name)

@@ -18,6 +18,10 @@ ARTIFACT_FILENAMES = {
     "evidence_table": "evidence_table.json",
     "evidence_coverage": "evidence_coverage.json",
     "query_rewrites": "query_rewrites.json",
+    "numeric_facts": "numeric_facts.json",
+    "numeric_claims": "numeric_claims.json",
+    "numeric_verification": "numeric_verification.json",
+    "evaluation_summary": "evaluation_summary.json",
     "critic_report": "critic_report.json",
     "trace_log": "trace_log.json",
     "final_answer": "final_answer.md",
@@ -65,4 +69,3 @@ def create_run_workspace(
     workspace = RunWorkspace(run_id=run_id, root=runs_dir / run_id)
     workspace.root.mkdir(parents=True, exist_ok=True)
     return workspace
-

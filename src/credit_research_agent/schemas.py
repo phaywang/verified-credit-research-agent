@@ -12,6 +12,16 @@ from pydantic import BaseModel, ConfigDict, Field
 CoverageDecision = Literal["sufficient", "rewrite_query", "proceed_with_limitations"]
 SupportStatus = Literal["supported", "unsupported", "needs_review"]
 TraceStatus = Literal["running", "completed", "failed"]
+FactConfidence = Literal["high", "medium", "low"]
+FactSource = Literal["xbrl", "text"]
+NumericClaimType = Literal["change_over_time", "availability_change", "debt_level_change"]
+NumericVerificationStatus = Literal[
+    "verified",
+    "unsupported",
+    "inconsistent",
+    "not_enough_data",
+    "low_confidence",
+]
 
 
 class JsonModel(BaseModel):
@@ -147,6 +157,67 @@ class CriticReport(JsonModel):
     unsupported_claims: List[AnswerClaim] = Field(default_factory=list)
     needs_repair: bool = False
     notes: List[str] = Field(default_factory=list)
+
+
+class NumericFact(JsonModel):
+    fact_id: str
+    company: str
+    ticker: str
+    fiscal_year: int
+    metric_name: str
+    display_name: str
+    value: float
+    unit: str
+    scale: str
+    source_text: str
+    source_chunk_id: str
+    source_url: str
+    filing_date: str
+    accession_number: str
+    extraction_method: str
+    fact_source: FactSource
+    confidence: FactConfidence
+    review_required: bool = False
+    source_detail: Dict[str, Any] = Field(default_factory=dict)
+
+
+class NumericClaim(JsonModel):
+    claim_id: str
+    metric_name: str
+    claim_type: NumericClaimType
+    old_year: int
+    new_year: int
+    old_fact_id: str
+    new_fact_id: str
+    statement_template: str
+    proposed_statement: str
+    required_calculations: List[str] = Field(default_factory=list)
+
+
+class NumericVerificationResult(JsonModel):
+    claim_id: str
+    claim: str
+    status: NumericVerificationStatus
+    metric_name: str
+    old_year: int
+    new_year: int
+    old_value: Optional[float] = None
+    new_value: Optional[float] = None
+    unit: Optional[str] = None
+    absolute_change: Optional[float] = None
+    percentage_change: Optional[float] = None
+    direction: Optional[str] = None
+    evidence: List[Dict[str, Any]] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class EvaluationSummary(JsonModel):
+    citation_coverage: float = 0.0
+    numeric_validation_rate: float = 0.0
+    unsupported_claim_count: int = 0
+    verified_numeric_claim_count: int = 0
+    evidence_coverage_by_year: Dict[str, bool] = Field(default_factory=dict)
+    evidence_coverage_by_section: Dict[str, bool] = Field(default_factory=dict)
 
 
 class FinalMetrics(JsonModel):

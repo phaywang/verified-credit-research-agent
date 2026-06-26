@@ -1,0 +1,152 @@
+[
+  {
+    "claim_id": "claim_company_debt_excluding_ford_credit_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "company_debt_excluding_ford_credit",
+    "new_fact_id": "ford_2025_company_debt_excluding_ford_credit_xbrl_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_company_debt_excluding_ford_credit_xbrl_high",
+    "old_year": 2023,
+    "proposed_statement": "Company debt excluding Ford Credit changed from $19.944B in 2023 to $21.919B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  },
+  {
+    "claim_id": "claim_company_debt_payable_within_one_year_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "company_debt_payable_within_one_year",
+    "new_fact_id": "ford_2025_company_debt_payable_within_one_year_xbrl_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_company_debt_payable_within_one_year_xbrl_high",
+    "old_year": 2023,
+    "proposed_statement": "Company debt payable within one year excluding Ford Credit changed from $0.477B in 2023 to $5.550B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  },
+  {
+    "claim_id": "claim_company_long_term_debt_payable_after_one_year_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "company_long_term_debt_payable_after_one_year",
+    "new_fact_id": "ford_2025_company_long_term_debt_payable_after_one_year_xbrl_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_company_long_term_debt_payable_after_one_year_xbrl_high",
+    "old_year": 2023,
+    "proposed_statement": "Company long-term debt payable after one year excluding Ford Credit changed from $19.467B in 2023 to $16.369B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  },
+  {
+    "claim_id": "claim_company_short_term_borrowings_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "company_short_term_borrowings",
+    "new_fact_id": "ford_2025_company_short_term_borrowings_xbrl_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_company_short_term_borrowings_xbrl_high",
+    "old_year": 2023,
+    "proposed_statement": "Company short-term borrowings excluding Ford Credit changed from $0.362B in 2023 to $1.355B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  },
+  {
+    "claim_id": "claim_total_balance_sheet_cash_and_marketable_securities_restricted_cash_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "total_balance_sheet_cash_and_marketable_securities_restricted_cash",
+    "new_fact_id": "ford_2025_total_balance_sheet_cash_and_marketable_securities_restricted_cash_text_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_total_balance_sheet_cash_and_marketable_securities_restricted_cash_text_high",
+    "old_year": 2023,
+    "proposed_statement": "Total cash, cash equivalents, marketable securities, and restricted cash changed from $40.400B in 2023 to $38.900B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  },
+  {
+    "claim_id": "claim_company_cash_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "company_cash",
+    "new_fact_id": "ford_2025_company_cash_text_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_company_cash_text_high",
+    "old_year": 2023,
+    "proposed_statement": "Company cash excluding Ford Credit changed from $28.800B in 2023 to $28.700B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  },
+  {
+    "claim_id": "claim_company_liquidity_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "company_liquidity",
+    "new_fact_id": "ford_2025_company_liquidity_text_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_company_liquidity_text_high",
+    "old_year": 2023,
+    "proposed_statement": "Company liquidity excluding Ford Credit changed from $46.400B in 2023 to $49.800B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  },
+  {
+    "claim_id": "claim_ford_credit_net_liquidity_available_for_use_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "ford_credit_net_liquidity_available_for_use",
+    "new_fact_id": "ford_2025_ford_credit_net_liquidity_available_for_use_text_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_ford_credit_net_liquidity_available_for_use_text_high",
+    "old_year": 2023,
+    "proposed_statement": "Ford Credit net liquidity available for use changed from $25.700B in 2023 to $24.600B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  },
+  {
+    "claim_id": "claim_ford_credit_liquidity_sources_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "ford_credit_liquidity_sources",
+    "new_fact_id": "ford_2025_ford_credit_liquidity_sources_text_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_ford_credit_liquidity_sources_text_high",
+    "old_year": 2023,
+    "proposed_statement": "Ford Credit liquidity sources changed from $56.200B in 2023 to $54.400B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  },
+  {
+    "claim_id": "claim_ford_credit_committed_capacity_2023_2025",
+    "claim_type": "change_over_time",
+    "metric_name": "ford_credit_committed_capacity",
+    "new_fact_id": "ford_2025_ford_credit_committed_capacity_text_high",
+    "new_year": 2025,
+    "old_fact_id": "ford_2023_ford_credit_committed_capacity_text_high",
+    "old_year": 2023,
+    "proposed_statement": "Ford Credit committed capacity changed from $45.300B in 2023 to $45.100B in 2025.",
+    "required_calculations": [
+      "absolute_change",
+      "percentage_change"
+    ],
+    "statement_template": "{display_name} changed from {old_value} in {old_year} to {new_value} in {new_year}."
+  }
+]

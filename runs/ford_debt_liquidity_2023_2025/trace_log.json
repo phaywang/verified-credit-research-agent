@@ -1,9 +1,13 @@
 {
   "artifacts": {
     "critic_report": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/critic_report.json",
+    "evaluation_summary": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/evaluation_summary.json",
     "evidence_coverage": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/evidence_coverage.json",
     "evidence_table": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/evidence_table.json",
     "final_answer": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/final_answer.md",
+    "numeric_claims": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/numeric_claims.json",
+    "numeric_facts": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/numeric_facts.json",
+    "numeric_verification": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/numeric_verification.json",
     "plan": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/plan.json",
     "query_rewrites": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/query_rewrites.json",
     "reranked_chunks": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/reranked_chunks.json",
@@ -12,7 +16,7 @@
     "task_spec": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/task_spec.json",
     "trace_log": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/trace_log.json"
   },
-  "created_at": "2026-06-25T22:07:11.814854",
+  "created_at": "2026-06-25T22:41:35.766643",
   "final_metrics": {
     "citation_coverage": 1.0,
     "evidence_coverage_passed": true,
@@ -42,7 +46,7 @@
       "reason": null,
       "state": "PLAN",
       "summary": "Created deterministic Ford debt/liquidity research plan.",
-      "timestamp": "2026-06-25T22:07:11.815091",
+      "timestamp": "2026-06-25T22:41:35.766900",
       "tools_called": [],
       "top_chunks": []
     },
@@ -70,7 +74,7 @@
       "reason": null,
       "state": "RETRIEVE",
       "summary": "Retrieved 8 fused candidates.",
-      "timestamp": "2026-06-25T22:07:16.794916",
+      "timestamp": "2026-06-25T22:41:40.702043",
       "tools_called": [
         "bm25_search",
         "vector_search",
@@ -104,7 +108,7 @@
       "reason": null,
       "state": "RERANK",
       "summary": "Reranked to 3 evidence chunks.",
-      "timestamp": "2026-06-25T22:07:16.902532",
+      "timestamp": "2026-06-25T22:41:40.809835",
       "tools_called": [
         "local_embedding_reranker"
       ],
@@ -167,7 +171,7 @@
       "reason": null,
       "state": "EVIDENCE_CHECK",
       "summary": "Checked evidence coverage using year metadata, section metadata, and substantive content signals.",
-      "timestamp": "2026-06-25T22:07:16.903009",
+      "timestamp": "2026-06-25T22:41:40.810296",
       "tools_called": [],
       "top_chunks": []
     },
@@ -192,7 +196,7 @@
       "reason": "Evidence coverage missing: 2025 evidence, 2023 debt evidence, 2025 debt evidence, 2025 liquidity evidence, management explanation.",
       "state": "QUERY_REWRITE",
       "summary": "Rewrote query to target missing evidence coverage.",
-      "timestamp": "2026-06-25T22:07:16.903217",
+      "timestamp": "2026-06-25T22:41:40.810498",
       "tools_called": [],
       "top_chunks": []
     },
@@ -215,7 +219,7 @@
       "reason": null,
       "state": "RETRIEVE_AGAIN",
       "summary": "Retrieved 40 fused candidates.",
-      "timestamp": "2026-06-25T22:07:16.915518",
+      "timestamp": "2026-06-25T22:41:40.823266",
       "tools_called": [
         "bm25_search",
         "vector_search",
@@ -251,7 +255,7 @@
       "reason": null,
       "state": "RERANK",
       "summary": "Reranked to 12 evidence chunks.",
-      "timestamp": "2026-06-25T22:07:17.410657",
+      "timestamp": "2026-06-25T22:41:41.310637",
       "tools_called": [
         "local_embedding_reranker"
       ],
@@ -349,8 +353,88 @@
       "reason": null,
       "state": "EVIDENCE_CHECK",
       "summary": "Checked evidence coverage using year metadata, section metadata, and substantive content signals.",
-      "timestamp": "2026-06-25T22:07:17.411552",
+      "timestamp": "2026-06-25T22:41:41.311528",
       "tools_called": [],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": null,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {
+        "numeric_facts_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/numeric_facts.json"
+      },
+      "parameters": {
+        "facts_extracted": 24,
+        "high_confidence_facts": 20,
+        "review_required_facts": 4
+      },
+      "query": null,
+      "reason": null,
+      "state": "EXTRACT_NUMERIC_FACTS",
+      "summary": "Extracted XBRL debt facts and classified liquidity text facts.",
+      "timestamp": "2026-06-25T22:41:41.460672",
+      "tools_called": [
+        "xbrl_candidate_mapping",
+        "narrative_regex",
+        "source_classification"
+      ],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": null,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {
+        "numeric_claims_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/numeric_claims.json"
+      },
+      "parameters": {
+        "claims_proposed": 10
+      },
+      "query": null,
+      "reason": null,
+      "state": "PROPOSE_NUMERIC_CLAIMS",
+      "summary": "Proposed deterministic comparison claims from extracted fact pairs.",
+      "timestamp": "2026-06-25T22:41:41.461258",
+      "tools_called": [],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": null,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {
+        "numeric_verification_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/numeric_verification.json"
+      },
+      "parameters": {
+        "non_verified_claims": 0,
+        "verified_claims": 10
+      },
+      "query": null,
+      "reason": null,
+      "state": "VERIFY_NUMERIC_CLAIMS",
+      "summary": "Verified candidate numeric comparison claims deterministically.",
+      "timestamp": "2026-06-25T22:41:41.461921",
+      "tools_called": [
+        "calculate_change",
+        "calculate_percentage_change",
+        "direction"
+      ],
       "top_chunks": []
     },
     {
@@ -370,7 +454,7 @@
       "reason": null,
       "state": "SYNTHESIZE",
       "summary": "Generated deterministic cited credit research brief.",
-      "timestamp": "2026-06-25T22:07:17.416301",
+      "timestamp": "2026-06-25T22:41:41.462887",
       "tools_called": [],
       "top_chunks": []
     },
@@ -391,7 +475,43 @@
       "reason": null,
       "state": "CRITIC",
       "summary": "Checked final answer claims against retrieved evidence chunk IDs.",
-      "timestamp": "2026-06-25T22:07:17.416679",
+      "timestamp": "2026-06-25T22:41:41.463408",
+      "tools_called": [],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": null,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {
+        "evaluation_summary_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/evaluation_summary.json"
+      },
+      "parameters": {
+        "citation_coverage": 1.0,
+        "evidence_coverage_by_section": {
+          "debt": true,
+          "liquidity": true,
+          "management_explanation": true,
+          "numeric_facts": true
+        },
+        "evidence_coverage_by_year": {
+          "2023": true,
+          "2025": true
+        },
+        "numeric_validation_rate": 1.0,
+        "unsupported_claim_count": 0,
+        "verified_numeric_claim_count": 10
+      },
+      "query": null,
+      "reason": null,
+      "state": "EVALUATE",
+      "summary": "Computed simple M2a evaluation metrics.",
+      "timestamp": "2026-06-25T22:41:41.463770",
       "tools_called": [],
       "top_chunks": []
     },
@@ -413,7 +533,7 @@
       "reason": null,
       "state": "FINALIZE",
       "summary": "Finalized workpaper artifacts and trace log.",
-      "timestamp": "2026-06-25T22:07:17.416907",
+      "timestamp": "2026-06-25T22:41:41.464005",
       "tools_called": [],
       "top_chunks": []
     }

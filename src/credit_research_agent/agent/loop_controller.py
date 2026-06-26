@@ -12,6 +12,7 @@ from credit_research_agent.agent.query_rewriter import rewrite_query, rewrite_re
 from credit_research_agent.agent.synthesizer import synthesize_final_answer
 from credit_research_agent.agent.task_parser import parse_task
 from credit_research_agent.config import DATA_DIR, DEFAULT_RUN_ID
+from credit_research_agent.evaluation.metrics import compute_evaluation_summary
 from credit_research_agent.retrieval.chunk_store import load_chunks_jsonl
 from credit_research_agent.retrieval.hybrid_retriever import HybridRetriever, RetrievalFilters
 from credit_research_agent.retrieval.reranker import Reranker
@@ -24,6 +25,10 @@ from credit_research_agent.schemas import (
     TraceStep,
     write_json,
 )
+from credit_research_agent.verification.fact_extractor import extract_numeric_facts
+from credit_research_agent.verification.fact_store import FactStore
+from credit_research_agent.verification.numeric_claim_extractor import propose_numeric_claims
+from credit_research_agent.verification.numeric_verifier import verify_numeric_claims
 from credit_research_agent.workpapers.run_workspace import RunWorkspace, create_run_workspace
 from credit_research_agent.workpapers.trace_logger import TraceLogger
 
@@ -190,11 +195,69 @@ class LoopController:
         write_json(workspace.artifact_path("evidence_coverage"), coverage)
         write_json(workspace.artifact_path("query_rewrites"), query_rewrites)
 
+        numeric_facts = extract_numeric_facts(
+            chunks,
+            DATA_DIR / "raw" / "sec" / "ford",
+            years=task_spec.years,
+        )
+        write_json(
+            workspace.artifact_path("numeric_facts"),
+            [fact.model_dump(mode="json") for fact in numeric_facts],
+        )
+        trace.log_step(
+            TraceStep(
+                state="EXTRACT_NUMERIC_FACTS",
+                tools_called=["xbrl_candidate_mapping", "narrative_regex", "source_classification"],
+                summary="Extracted XBRL debt facts and classified liquidity text facts.",
+                outputs={"numeric_facts_path": str(workspace.artifact_path("numeric_facts"))},
+                parameters={
+                    "facts_extracted": len(numeric_facts),
+                    "high_confidence_facts": sum(1 for fact in numeric_facts if fact.confidence == "high"),
+                    "review_required_facts": sum(1 for fact in numeric_facts if fact.review_required),
+                },
+            )
+        )
+
+        fact_store = FactStore()
+        fact_store.add_facts(numeric_facts)
+        numeric_claims = propose_numeric_claims(task_spec, fact_store)
+        write_json(
+            workspace.artifact_path("numeric_claims"),
+            [claim.model_dump(mode="json") for claim in numeric_claims],
+        )
+        trace.log_step(
+            TraceStep(
+                state="PROPOSE_NUMERIC_CLAIMS",
+                summary="Proposed deterministic comparison claims from extracted fact pairs.",
+                outputs={"numeric_claims_path": str(workspace.artifact_path("numeric_claims"))},
+                parameters={"claims_proposed": len(numeric_claims)},
+            )
+        )
+
+        verification_results = verify_numeric_claims(numeric_claims, fact_store)
+        write_json(
+            workspace.artifact_path("numeric_verification"),
+            [result.model_dump(mode="json") for result in verification_results],
+        )
+        trace.log_step(
+            TraceStep(
+                state="VERIFY_NUMERIC_CLAIMS",
+                tools_called=["calculate_change", "calculate_percentage_change", "direction"],
+                summary="Verified candidate numeric comparison claims deterministically.",
+                outputs={"numeric_verification_path": str(workspace.artifact_path("numeric_verification"))},
+                parameters={
+                    "verified_claims": sum(1 for result in verification_results if result.status == "verified"),
+                    "non_verified_claims": sum(1 for result in verification_results if result.status != "verified"),
+                },
+            )
+        )
+
         final_answer = synthesize_final_answer(
             task_spec,
             all_evidence,
             coverage,
             str(workspace.artifact_path("trace_log")),
+            verification_results=verification_results,
         )
         workspace.artifact_path("final_answer").write_text(
             final_answer.markdown,
@@ -208,7 +271,24 @@ class LoopController:
             )
         )
 
-        critic_report = critique_answer(final_answer, all_evidence)
+        numeric_source_chunk_ids = {
+            fact.source_chunk_id
+            for fact in numeric_facts
+        }
+        critic_report = critique_answer(
+            final_answer,
+            all_evidence,
+            extra_allowed_chunk_ids=numeric_source_chunk_ids,
+            verification_results=verification_results,
+        )
+        review_required_count = sum(1 for fact in numeric_facts if fact.review_required)
+        if review_required_count:
+            critic_report.notes.append(
+                f"Excluded {review_required_count} review-required low-confidence fact(s) from numeric conclusion sentences."
+            )
+        critic_report.notes.append(
+            "Deferred company_debt_maturities_next_twelve_months because no validated total-bucket XBRL mapping is implemented."
+        )
         write_json(workspace.artifact_path("critic_report"), critic_report)
         trace.log_step(
             TraceStep(
@@ -225,7 +305,12 @@ class LoopController:
                 final_answer.markdown,
                 encoding="utf-8",
             )
-            repaired_report = critique_answer(final_answer, all_evidence)
+            repaired_report = critique_answer(
+                final_answer,
+                all_evidence,
+                extra_allowed_chunk_ids=numeric_source_chunk_ids,
+                verification_results=verification_results,
+            )
             write_json(workspace.artifact_path("critic_report"), repaired_report)
             trace.log_step(
                 TraceStep(
@@ -235,6 +320,21 @@ class LoopController:
                 )
             )
             critic_report = repaired_report
+
+        evaluation_summary = compute_evaluation_summary(
+            final_answer,
+            verification_results,
+            coverage,
+        )
+        write_json(workspace.artifact_path("evaluation_summary"), evaluation_summary)
+        trace.log_step(
+            TraceStep(
+                state="EVALUATE",
+                summary="Computed simple M2a evaluation metrics.",
+                outputs={"evaluation_summary_path": str(workspace.artifact_path("evaluation_summary"))},
+                parameters=evaluation_summary.model_dump(mode="json"),
+            )
+        )
 
         metrics = FinalMetrics(
             citation_coverage=(
