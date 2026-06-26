@@ -62,14 +62,16 @@ class LoopController:
         self.skill_path = skill_path or Path("skills/debt_liquidity_research/SKILL.md")
 
     def _initial_query(self, plan_query: str, topic_memory=None) -> str:
-        # Use memory's successful query if available and enabled
-        selected = select_initial_query(plan_query, topic_memory, self.use_memory)
+        # If memory is enabled and has successful query, use it
+        if self.use_memory and topic_memory and topic_memory.successful_queries:
+            return topic_memory.successful_queries[-1]
 
-        # If not using memory, return weak demo query when force_rewrite_demo is on
-        if not self.use_memory and self.force_rewrite_demo:
+        # Otherwise, use weak demo query if force_rewrite_demo is on
+        if self.force_rewrite_demo:
             return "Ford 2023 10-K liquidity cash credit facilities"
 
-        return selected
+        # Default to plan query
+        return plan_query
 
     def _retrieval_sizes(self, iteration: int) -> Tuple[int, int]:
         if self.force_rewrite_demo and iteration == 1:
