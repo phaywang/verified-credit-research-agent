@@ -1,8 +1,10 @@
 # Verified Credit Research Agent - Milestone 3
-## LLM-Driven ReAct Agent for Financial Analysis
+## LLM-Driven ReAct Agent for Verified Credit Research
 
 **Status**: Design phase (review only, no implementation)  
 **Objective**: Upgrade M2's deterministic harness into an LLM-driven ReAct agent while maintaining auditability and numeric accuracy.
+
+**Key Constraint**: Phase 1 acceptance requires **real Bedrock tool calling minimum closure** (invoke → receive tool_use → parse → return tool_result → multi-turn sequence) proven working before Phase 2+ ReAct logic is written.
 
 ---
 
@@ -69,24 +71,30 @@ REPAIR (M2 rule engine, tool-ified if needed)
 Workpaper + Trace + Final Brief (M2, enhanced with LLM trace steps)
 ```
 
-### 1.2 Component Status Matrix
+### 1.2 Architecture: LLM Roles vs Deterministic Tools
 
-| Component | M1 | M2 | M3 | Notes |
-|-----------|----|----|----|----|
-| Task Parser | ✓ | ✓ | ✓ | Unchanged |
-| Memory Reader | - | ✓ | ✓ | Upgraded: LLM reads memory to inform strategy |
-| Skill Loader | - | ✓ | ✓ | Unchanged; LLM reads skill rules |
-| **Planner** | Rule | Rule | **LLM** | New: LLM decomposes research task |
-| Hybrid Retriever | ✓ | ✓ | Tool | Tool-ified for LLM invocation |
-| Reranker | ✓ | ✓ | Tool | Tool-ified for LLM invocation |
-| **Evidence Evaluator** | Rule | Rule | **LLM** | New: LLM reasons sufficiency, decides rewrite |
-| Query Rewriter | Rule | Rule | Tool | Stays deterministic; LLM calls it when needed |
-| Numeric Extraction | - | ✓ | Tool | XBRL/narrative extractors as tool set |
-| Numeric Verification | - | ✓ | Tool | Deterministic calculations, never LLM-driven |
-| **Synthesizer** | Template | Template | **LLM** | Upgraded: LLM generates prose, guardrailed |
-| **Critic** | Rule | Rule | **LLM** | Upgraded: LLM evaluates, with repair fallback |
-| Repair | - | Rule | Tool | Stays deterministic |
-| Trace Logger | ✓ | ✓ | Enhanced | Records LLM thought/action/observation steps |
+**LLM Roles** (Agent decision points at each loop stage):
+- **Planner**: Decompose task into retrieval strategy
+- **Evidence Evaluator**: Analyze evidence sufficiency; decide retrieve/verify/synthesize
+- **Query Rewriter**: Generate improved query from coverage gaps (LLM-primary + rule fallback)
+- **Synthesizer**: Write brief narrative from evidence + verified facts (guardrailed)
+- **Critic**: Evaluate brief semantically + numerically
+
+**Deterministic Tools** (LLM calls these; outputs are deterministic):
+- `hybrid_retrieve(query)` → ranked chunks
+- `rerank(query, candidates, top_k)` → reranked chunks
+- `xbrl_fact_lookup(metric, year)` → NumericFact (XBRL)
+- `narrative_fact_lookup(metric, year, chunks)` → NumericFact (text)
+- `verify_numeric_claim(metric, old_year, new_year)` → VerificationResult
+- `calculate_change(old, new)` → {delta, pct_change, direction}
+- `query_memory(topic)` → {useful_sections, successful_queries, verified_metrics}
+- `write_workpaper(artifact_name, content)` → Path
+- `numeric_guardrail_check(brief_text, verified_facts)` → {blocked_claims, issues}
+
+**Clear Separation**: 
+- LLM drives *what to do, when to do it, how to interpret results*
+- Tools execute deterministic operations and return structured data
+- **Synthesizer and Critic are LLM roles**, not tools to call (no "synthesizer" tool; LLM is the synthesizer)
 
 ---
 
@@ -218,24 +226,32 @@ Each tool is a Python function wrapped for Bedrock tool-use schema.
 - LLM reads to understand evidence expectations
 - No modification by LLM
 
-#### Synthesis / Evaluation Tools
+#### Query Rewriting Tool
 
-**`synthesize_draft(task: TaskSpec, evidence: List[Chunk], verified_facts: List[VerificationResult]) → Brief`**
-- LLM calls to generate initial draft
-- Input: task spec, retrieved chunks, verified numeric results
-- Output: Markdown brief with inline [citations] and [verification status]
-- Guardrail: Template includes "Source: [verified_fact_id]" for every number
+**`query_rewrite_helper(task: TaskSpec, coverage_gaps: List[str]) → Dict`**
+- **LLM-primary rewriter** (NOT a tool that replaces LLM; tool is helper only)
+- Returns deterministic rule-based fallback if LLM rewrite fails
+- Output: {rewritten_query, reasoning_summary, target_years, target_sections, fallback_used: bool}
+- Example: Given gaps ["2023 debt evidence", "2025 liquidity evidence"], outputs structured rewrite with proof of which sections targeted
 
-**`critic_evaluate(brief: Brief, verification_results: List[VerificationResult]) → CriticResult`**
-- Checks: Every number in brief has corresponding verified fact
-- Returns: {approved: bool, unsupported_claims: [List], repair_suggestions: [List]}
-- If unsupported numbers found → suggests repair (regenerate that section)
-- LLM reviews result and decides: accept or invoke repair
+#### Numeric Guardrail Tool
 
-**`repair_brief(brief: Brief, unsupported_claims: [List]) → Brief`**
-- Deterministic rule engine: Removes unsupported claims, rewrites section
-- Returns: Cleaned brief (no unverified numbers)
-- LLM can then resynthesizes if needed, or accepts repaired brief
+**`numeric_guardrail_check(brief_text: str, verified_facts: Dict, numeric_verification: Dict) → GuardrailResult`**
+- **First layer of critic** (deterministic, before LLM semantic review)
+- Scans brief for: amounts ($X billion, X%), percentages ("increased Y%"), comparative claims ("from X to Y")
+- For each numeric pattern found:
+  - Check: is it bound to a verified_fact ID? (`[verified: fact_id]` tag exists)
+  - Check: source exists in `numeric_facts.json`?
+  - **Distinguish**: financial numbers (need verification) vs metadata (year, section #, citation count — do NOT require verification)
+- Returns: {blocked_claims: [List of unverified numbers], unverified_issues: [List], severity: "block|warn"}
+- **Critical precision**: Regex must NOT false-positive on "2023" or "paragraph 4" or "3 sources cited"
+
+#### Repair Tool
+
+**`repair_brief(brief: Brief, blocked_claims: [List]) → Brief`**
+- Deterministic rule engine: Removes or downgrades blocked numeric claims
+- Returns: Cleaned brief (guardrail-verified, no unverified numbers)
+- Tool does NOT regenerate text; strictly removal + caveat insertion ("Numeric claim removed: insufficient verification")
 
 #### Utility Tools
 
@@ -282,82 +298,74 @@ Every number in final brief must be:
   (c) Blocked by critic
 ```
 
-### 4.2 The Guardrail Pipeline
+### 4.2 Neurosymbolic Guardrails: Two-Layer Critic
 
-**Guardrail 1: Synthesis Template**
+**Layer 1: Deterministic Numeric Guardrail**
 
-Synthesizer prompt includes:
+Tool: `numeric_guardrail_check(brief_text, verified_facts, numeric_verification)` 
 
-```markdown
-You are writing a credit research brief. Rules:
-1. For EVERY numeric claim, cite the source:
-   "Company debt decreased from $19.9B [verified: xbrl_fact_2023_debt] 
-    to $21.9B [verified: xbrl_fact_2025_debt]"
-2. If you cannot cite a source, do NOT state the number.
-3. Mark uncertain claims with [LOW_CONFIDENCE: reason].
-```
+Scans brief for all numeric patterns:
+- Dollar amounts: `$X billion`, `$X.X billion`, `$X million`
+- Percentages: `X%`, `X.X%`
+- Comparative claims: "increased from $X to $Y", "declined Y%"
+- Changes: "decreased", "increased", "rose", "fell" + adjacent numbers
 
-→ Forces LLM to cite before stating; makes unverified numbers visible.
-
-**Guardrail 2: Critic Verification**
-
-Critic regex-scans brief for:
-- `[verified: ...]` tags
-- `[LOW_CONFIDENCE: ...]` tags
-- Numeric values without tags (red flag)
+For each numeric pattern found:
 
 ```python
-def critic_check(brief_text: str, verified_facts: Dict[str, bool]) -> CriticResult:
-    # Find all numeric patterns in brief
-    # For each, check: is source in verified_facts[source_id]?
-    # If: not verified AND not low_confidence → add to unsupported_claims
+def check_pattern(pattern_text, verified_facts):
+    # Is it a financial number (metric)? → requires verification
+    if is_financial_metric(pattern_text):
+        # Check: [verified: fact_id] tag exists?
+        verified_id = extract_verified_tag(pattern_text)
+        if verified_id:
+            # Does verified_id exist in numeric_verification.json?
+            if verified_id in verified_facts:
+                return {"status": "verified"}
+        return {"status": "blocked", "reason": "no verified source"}
+    
+    # Is it metadata (year, section #, count)? → do NOT require verification
+    elif is_metadata(pattern_text):  # e.g., "2023", "three sources"
+        return {"status": "metadata", "no_verification_needed": True}
+    
+    else:
+        return {"status": "unknown"}
 ```
 
-Blocks brief if: "Found $42B without verified source"
+**Critical distinction** (must NOT false-positive):
+- Verify: "Company debt **increased from $19.9B to $21.9B**" → requires [verified: ...]
+- Metadata (skip): "Based on **2023** 10-K" → year is context, not claim
+- Metadata (skip): "**3** sources cited" → count is metadata, not financial claim
 
-**Guardrail 3: Repair Enforcement**
+Returns: `{blocked_claims: [List], metadata_found: [List], severity: "block|warn"}`
 
-If critic finds unsupported claims:
+**Layer 2: LLM Semantic Critic**
+
+**LLM Role: Critic** — After Layer 1 passes, LLM evaluates:
+
+1. **Evidence sufficiency**: Do the cited chunks actually support the claim?
+   - Example: Brief says "liquidity pressure increased" → do we have evidence of pressure, or just a number change?
+   
+2. **Inference validity**: Is the conclusion bounded by evidence, or over-interpreted?
+   - Example: "Debt increased 10% year-over-year" ✓ (facts support)
+   - Example: "Therefore, Ford faces near-term solvency risk" ✗ (not in evidence)
+
+3. **Management explanation integrity**: Is MD&A quoted accurately or cherry-picked?
+   - Example: Management says "Despite debt increase, liquidity remains strong" → brief must include context
+
+4. **Limitations**: Are caveats and boundaries clear?
+   - Example: "Verified from 2023 and 2025 10-K debt disclosures; does not include off-balance-sheet obligations"
+
+LLM returns: `{semantic_issues: [List], passes_semantic_check: bool, required_repairs: [List]}`
+
+**Critic Decision**:
 ```
-repair_brief(brief, unsupported_claims):
-  for claim in unsupported_claims:
-    if claim.type == "numeric":
-      REMOVE claim from brief
-      ADD: "[Numeric claim removed: insufficient verification]"
-  return repaired_brief
-```
-
-LLM **cannot override** repair; final brief is guaranteed clean.
-
-**Guardrail 4: Trace Auditability**
-
-Every numeric value in final brief links back to:
-- Tool call that extracted it
-- Verification step that certified it
-- Trace entry proving LLM made that decision
-
-Example trace step:
-
-```json
-{
-  "state": "LLM_DECISION",
-  "thought": "Debt increased from 2023 to 2025; need to verify delta",
-  "action": "verify_numeric_claim",
-  "tool_call": {
-    "metric": "company_debt_excluding_ford_credit",
-    "old_year": 2023,
-    "new_year": 2025
-  },
-  "observation": {
-    "status": "verified",
-    "delta": 1.975,
-    "verified_fact_2023_id": "F_2023_debt_001",
-    "verified_fact_2025_id": "F_2025_debt_003"
-  }
-}
+If Layer 1 blocks (numeric_guardrail) → repair removes claim
+Else if Layer 2 LLM-semantic-check fails → LLM suggests repairs
+Else → brief approved
 ```
 
-Audit trail is complete; reviewer can trace every number.
+Both layers must pass. If both pass → brief is safe to publish.
 
 ### 4.3 Guardrail Violations & Recovery
 
@@ -487,17 +495,25 @@ Graceful degradation: Brief is always delivered, but completeness may vary.
 
 ## 7. LLM Reasoning Trace
 
-Every LLM step is recorded:
+Every LLM step is recorded with **summary, not raw thought**:
 
 ```json
 {
   "iteration": 1,
-  "step": "LLM_THOUGHT",
+  "step": "LLM_DECISION",
   "timestamp": "...",
   "model": "claude-opus-4-8",
   "input_tokens": 2345,
   "output_tokens": 234,
-  "thought_text": "I have 2023 and 2025 liquidity evidence from MD&A. I need debt facts for both years. I should call xbrl_fact_lookup for company_debt_excluding_ford_credit.",
+  "role": "Evidence Evaluator",
+  "reasoning_summary": "Have liquidity evidence (2023 MD&A, 2025 MD&A); missing debt evidence for both years.",
+  "decision_basis": [
+    "Required by skill: debt + liquidity for both years",
+    "Present: liquidity 2023 (MD&A), liquidity 2025 (MD&A)",
+    "Gap: debt evidence missing for 2023 and 2025",
+    "Action: retrieve debt facts"
+  ],
+  "decision": "verify_numeric_facts",
   "metadata": {
     "evidence_sections_present": ["Liquidity and Capital Resources", "MD&A"],
     "metrics_verified_so_far": []
@@ -505,7 +521,7 @@ Every LLM step is recorded:
 }
 ```
 
-Then:
+Then action step:
 
 ```json
 {
@@ -518,11 +534,17 @@ Then:
     "value": 19.944,
     "unit": "USD billions",
     "source_detail": {"selected_concept": "DebtLongtermAndShorttermCombinedAmountCompanyExcludingFordCredit"}
-  }
+  },
+  "timestamp": "...",
+  "tool_call_id": "xbrl_001"
 }
 ```
 
-Full audit trail lets reviewers follow LLM's reasoning (and catch errors).
+**Trace philosophy:**
+- `reasoning_summary`: Concise, safe-to-share decision rationale
+- `decision_basis`: Structured list of why LLM chose this action (not raw internal reasoning)
+- No `thought_text` or raw LLM internal monologue (security + clarity)
+- Audit trail links decisions → actions → observations; reviewers can follow logic without seeing internals
 
 ---
 
@@ -577,96 +599,127 @@ Run same task 3 times with different LLM seeds:
 
 ---
 
-## 9. Implementation Roadmap
+## 9. Implementation Roadmap: M3-Core → M3-Full
 
-### Phase 1: Tool Calling Foundation (1-2 weeks)
+**Phase 1: Tool Calling Foundation (2-3 weeks)** — [VERIFICATION GATE]
 
-1. **Wrap M1/M2 functions as tools**
+1. **Wrap M1/M2 functions as tools** (non-breaking; logic unchanged)
    - `hybrid_retrieve` → signature + docstring
-   - `xbrl_fact_lookup` → signature
-   - `verify_numeric_claim` → signature
-   - others (synthesize, critic, repair)
+   - `rerank` → signature
+   - `xbrl_fact_lookup`, `narrative_fact_lookup` → signatures
+   - `verify_numeric_claim`, `calculate_change` → signatures
+   - `query_memory`, `write_workpaper`, `numeric_guardrail_check` → signatures
+   - **NOT**: Synthesizer, Critic (these are LLM roles, not tools)
 
 2. **Bedrock Tool Calling Integration**
-   - Implement `invoke_with_tools()` that:
-     - Sends prompt + tool definitions to Claude Opus via Bedrock
+   - Adapt `financial-dd-agent/src/bedrock.py` to M3 (reuse bot3 + ChatBedrockConverse)
+   - Implement `invoke_with_tools(prompt, tools)` that:
+     - Sends prompt + tool definitions to Claude Opus 4.8 via Bedrock
      - Parses tool_use blocks from response
      - Invokes corresponding Python function
-     - Streams result back to LLM
-   - Reuse `financial-dd-agent` patterns (if available) or build from Bedrock docs
+     - Streams result back via tool_result block
+     - Supports multi-turn tool loops
 
-3. **Trace Recording**
-   - Extend TraceLogger to log LLM steps (thought/action/observation)
-   - Capture tool calls + results
+3. **Trace Recording (with new structure)**
+   - Extend TraceLogger for: reasoning_summary, decision_basis (not raw thought)
+   - Record tool_call_id, tool input/output, timestamps
 
-4. **Tests**: Tool calling works end-to-end (mock LLM)
+4. **Phase 1 Acceptance Gate** ⚠️ **CRITICAL**:
+   - **Real Bedrock tool calling minimum closure**: Invoke → receive tool_use → parse → return tool_result → multi-turn sequence, proven working
+   - Test with dummy tool (e.g., echo back query)
+   - No mock LLM; use real Claude Opus 4.8
+   - If this fails, stop — Phase 2+ code is blind without ground truth
+   - Pass criteria: 3 consecutive multi-turn tool calls with correct parsing and result handling
 
-### Phase 2: ReAct Loop (2-3 weeks)
-
-1. **ReAct State Machine**
-   - Implement loop: THOUGHT → ACTION → OBSERVATION → back to THOUGHT
-   - Stopping conditions: success (critic approves), max_iterations, token budget
-
-2. **LLM Decision Points**
-   - Evidence Evaluator: Should retrieve more or verify?
-   - Synthesis: Generate brief from verified facts
-   - Critic: Evaluate brief for guardrail violations
-
-3. **Fallback Handling**
-   - Token budget exceeded → finalize gracefully
-   - Tool errors → log and continue
-   - LLM refuses → return error brief
-
-4. **Tests**: ReAct loop converges (with mock LLM deterministic responses)
-
-### Phase 3: Neurosymbolic Guardrails (1-2 weeks)
-
-1. **Critic Guardrail**
-   - Regex scan brief for unverified numbers
-   - Check citation tags: `[verified: fact_id]` must exist in fact store
-
-2. **Repair Tool**
-   - Remove unsupported claims
-   - Regenerate brief sections (or simple removal + caveat)
-
-3. **Synthesis Prompt**
-   - Enforce `[verified: ...]` citation requirement
-   - Add `[LOW_CONFIDENCE: ...]` for uncertain facts
-
-4. **Tests**: Critic blocks hallucinated numbers; repair removes them
-
-### Phase 4: LLM Synthesis & Reflection (2 weeks)
+### Phase 2: LLM Synthesizer + Numeric Guardrails (2-3 weeks) — [HIGH VALUE]
 
 1. **LLM Synthesizer (replace template)**
-   - LLM writes prose brief (not template-driven)
-   - Guardrail: Must cite verified facts
+   - Prompt design: "Write brief from evidence + verified facts; cite [verified: fact_id] for every number"
+   - LLM generates markdown with inline citations
+   - Input: task, evidence chunks, verified_facts.json
+   - Output: Markdown brief (2-3 pages)
 
-2. **LLM Critic (replace rule-based)**
-   - LLM evaluates: Are claims supported?
-   - Guardrail: Deterministic numeric check (critic tool, not LLM opinion)
+2. **Numeric Guardrail (Layer 1)**
+   - Implement `numeric_guardrail_check()` regex + fact-lookup
+   - Distinguish: financial numbers (require verification) vs metadata (year, count — skip)
+   - Returns blocked_claims with high precision (no false positives on "2023")
 
-3. **Integration**
-   - Synthesizer + Critic work end-to-end
-   - Repair loop handles unsupported claims
+3. **Repair Tool**
+   - Deterministic removal of blocked claims
+   - Add caveat insertion (no regeneration; stay simple)
 
-4. **Tests**: Synthesizer respects guardrails; critic catches violations
+4. **Phase 2 Acceptance**:
+   - LLM generates brief for M2 demo task
+   - Guardrail blocks any unverified numbers
+   - Repair cleans brief; final version has zero unverified financials
+   - Multiple runs → same verified numbers appear (deterministic)
 
-### Phase 5: Integration & Acceptance (1 week)
+### Phase 3: LLM Query Rewriter (2 weeks) — [M3 MUST-DO]
 
-1. **Full M3 End-to-End**
-   - Same task as M2 demo
-   - Run with real Claude (via Bedrock)
-   - Verify: Brief is generated, trace is complete, numbers are verified
+1. **LLM Query Rewriter (primary)**
+   - Prompt: "Given evidence gaps [list], generate improved query with target_years, target_sections"
+   - Output: {rewritten_query, reasoning_summary, target_years, target_sections, fallback_used: false}
+   - Fallback: If LLM fails, use rule-based rewrite (M1 logic)
 
-2. **Acceptance Tests**
-   - Multiple runs same task → deterministic conclusions
-   - Trace audit trail is complete
-   - Guardrails enforce (no unverified numbers in final brief)
+2. **Integration**
+   - Evidence Evaluator calls LLM Query Rewriter when gaps detected
+   - Re-retrieves with new query
+   - Logs decision + reasoning
 
-3. **Documentation**
-   - ReAct prompt engineering guide
-   - Tool calling patterns
-   - Troubleshooting guardrail failures
+3. **Phase 3 Acceptance**:
+   - LLM rewrites weak query into strong query
+   - Rewrite reasoning is clear and auditable
+   - No rule fallback needed (unless LLM API fails)
+
+### Phase 4: ReAct Loop Controller ← **[AGENT QUALITY CHANGE POINT]** (3 weeks)
+
+1. **ReAct State Machine**
+   - THOUGHT (LLM: Evidence Evaluator) → ACTION (invoke tool) → OBSERVATION (parse result) → back to THOUGHT
+   - Stopping: critic approves brief, max_iterations reached, token budget exceeded
+   - Clear loop control (no infinite retries)
+
+2. **LLM Decision Roles**
+   - **Planner**: Initial strategy from task + skill + memory
+   - **Evidence Evaluator**: Is evidence sufficient? Retrieve/verify/synthesize?
+   - **Query Rewriter**: Generate improved query from gaps (Phase 3)
+   - **Synthesizer**: Write brief from evidence + verified facts (Phase 2)
+   - **Critic Layer 1**: Numeric guardrail check (deterministic)
+   - **Critic Layer 2**: Semantic evaluation (LLM)
+
+3. **Phase 4 Acceptance** ⚠️ **AGENT PROOF**:
+   - Agent autonomously completes M2 demo task: query → retrieve → verify → synthesize → critic → brief
+   - No human hand-off at decision points
+   - Trace shows clear THOUGHT→ACTION→OBSERVATION chain
+   - Agent stops on success (critic approval) or max_iterations
+   - Brief is verified-clean (guardrail passed)
+
+### Phase 5: Two-Layer Critic + Full Reflection (2 weeks) — [M3-FULL POLISH]
+
+1. **LLM Semantic Critic (Layer 2)**
+   - Implement: Evidence sufficiency, inference validity, management explanation integrity, limitations clarity
+   - Returns repair suggestions or approval
+
+2. **Critic Integration**
+   - Layer 1 (deterministic guardrail) runs first; if pass → Layer 2 (LLM semantic)
+   - Both must pass for brief approval
+
+3. **Fallback Chains**
+   - LLM refuses → rule fallback
+   - Token budget exceeded → finalize with what's verified
+   - Tool errors → graceful degradation
+
+4. **Phase 5 Acceptance**:
+   - Critic catches both numeric (guardrail) and semantic (LLM) issues
+   - Multiple iterations: agent → critic feedback → repair → re-synthesize → critic → approved
+   - Final brief is both numerically verified and semantically sound
+
+---
+
+**Milestones Summary**:
+- **Phase 1-4 = M3-Core**: Full verified agent with guardrails (shippable)
+- **Phase 5 = M3-Full**: Polished two-layer critic and reflection
+- **Phase 1 Gate**: Real Bedrock closure (blocker for all subsequent phases)
+- **Phase 4 Gate**: Agent autonomy proof (hard evidence of LLM-driven behavior)
 
 ---
 
@@ -718,38 +771,57 @@ MCP allows:
 
 ---
 
-## 12. Success Criteria (Acceptance)
+## 12. Success Criteria (Acceptance Gates)
 
-### Minimum Viable M3
+### Phase 1 Acceptance: Bedrock Tool Calling Foundation ⚠️ BLOCKER
 
-1. **Tool calling works**
-   - Bedrock tool_use → Python function → result to LLM ✓
-   - All major tools wrapped (retrieve, xbrl_lookup, verify, synthesize, critic) ✓
+**Gate Test** (must pass before Phase 2):
+```
+invoke_with_tools("What is the weather?", tools=[echo_tool])
+  → LLM returns tool_use block for echo_tool
+  → parse tool_use
+  → invoke echo_tool(text)
+  → return tool_result to LLM
+  → LLM processes result
+  → multi-turn (3+ tool calls): succeed
+```
 
-2. **ReAct loop completes**
-   - LLM reasons → decides action → observes result → repeats ✓
-   - Loop respects max_iterations and token budget ✓
+Criteria:
+- Real Bedrock API call (not mock)
+- Correct tool_use block parsing
+- Result handling returns to LLM
+- No errors; clean closure
+- **If this fails: stop; Phase 2+ code is blind**
 
-3. **Guardrails enforce**
-   - Every number in final brief is verified or cited ✓
-   - Critic catches hallucinated numbers ✓
-   - Repair removes unsupported claims ✓
+### Phase 2 Acceptance: LLM Synthesis + Numeric Guardrails
 
-4. **Trace is complete**
-   - Every LLM thought/action logged ✓
-   - Numbers can be traced back to verification ✓
-   - Audit trail is reviewable ✓
+- LLM generates brief for M2 task (Ford debt/liquidity 2023→2025)
+- Guardrail blocks any unverified numbers ($X billion without [verified: ...])
+- Repair removes blocked claims; brief is clean
+- Trace shows tool calls with reasoning_summary + decision_basis (not raw thought)
+- Multiple runs → numeric conclusions are deterministic
 
-5. **M2 demo task works**
-   - Same task (Ford debt/liquidity 2023→2025) as M2 ✓
-   - Brief is generated, numeric conclusions verified ✓
-   - Trace is clean and auditable ✓
+### Phase 4 Acceptance: Full ReAct Agent ← **AGENT PROOF**
 
-### Plus (Nice to Have, Not Required)
+- Agent autonomously completes M2 task end-to-end
+- No human hand-off at decision points
+- Trace shows THOUGHT→ACTION→OBSERVATION loop
+- Agent stops on success (critic approval) or max_iterations
+- Brief passes both Layer 1 (numeric) and Layer 2 (semantic) guardrails
+- Evidence, verification, synthesis, and criticism are all agent-driven
 
-- LLM-driven query rewrite (currently rule-based) — deferred
-- Multi-step reasoning prompts — refined over time
-- LLM memory/skill influence on strategy — low priority
+### Phase 5 Acceptance: M3-Full (Polish)
+
+- Two-layer critic (deterministic + LLM) working together
+- Agent handles semantic issues via repair-resynthesis loop
+- Fallback chains (LLM refusal, token budget) degrade gracefully
+- Full M2 task completed with verified-clean + semantically-sound brief
+
+### M3 Success = M3-Core Acceptance (Phases 1-4)
+
+- Phases 1-4 complete: **M3-Core accepted** (shippable verified agent with guardrails)
+- Phase 5 refinements are enhancements, not requirements
+- Ready to compare with M2: same task, real agent vs rule engine
 
 ---
 
