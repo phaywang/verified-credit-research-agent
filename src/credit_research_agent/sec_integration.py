@@ -13,7 +13,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import urljoin
 from urllib.error import URLError
 
@@ -165,7 +165,7 @@ class SECCompanyLookup:
         """Load SEC company tickers JSON (cached locally).
 
         Returns:
-            Dict mapping numeric index to ticker info
+            Dict mapping numeric index to ticker info {index: {ticker, cik_str}}
         """
         if self._tickers_cache is not None:
             return self._tickers_cache
@@ -195,7 +195,7 @@ class SECCompanyLookup:
             # Save to cache
             with open(cache_path, "w") as f:
                 json.dump(tickers, f, indent=2)
-            logger.info(f"Cached tickers to {cache_path}")
+            logger.info(f"Cached {len(tickers)} tickers to {cache_path}")
 
             self._tickers_cache = tickers
             return tickers
@@ -358,20 +358,60 @@ class XBRLParser:
         if self.ET is None:
             raise ImportError("xml.etree.ElementTree required for XBRL parsing")
 
-        # Placeholder implementation
-        # Real implementation would:
-        # 1. Parse XML
-        # 2. Build context lookup (date → context ID)
-        # 3. For each metric, find XBRL concept and value
-        # 4. Convert units (millions → billions)
-        # 5. Return structured results
-
         results: Dict[str, MetricValue] = {}
 
         try:
             root = self.ET.fromstring(xbrl_content)
-            # Parse would go here
-            logger.info(f"Parsed XBRL with {len(root)} elements")
+
+            # Build context lookup: context_id → end_date
+            contexts = self._extract_contexts(root)
+
+            # Find contexts matching the fiscal year
+            matching_contexts = [
+                (ctx_id, date) for ctx_id, date in contexts.items()
+                if date and date[:4] == str(fiscal_year)
+            ]
+
+            if not matching_contexts:
+                logger.warning(f"No contexts found for fiscal year {fiscal_year}")
+                return results
+
+            # XBRL concept mapping (simplified)
+            concept_map = {
+                "total_debt": ["us-gaap:Debt", "us-gaap:ShortTermBorrowings", "us-gaap:LongTermDebt"],
+                "shareholders_equity": ["us-gaap:StockholdersEquity", "us-gaap:ShareholdersEquity"],
+                "total_assets": ["us-gaap:Assets"],
+                "total_liabilities": ["us-gaap:Liabilities"],
+                "interest_expense": ["us-gaap:InterestExpense"],
+                "operating_cash_flow": ["us-gaap:OperatingActivitiesCashFlow"],
+                "current_assets": ["us-gaap:AssetsCurrent"],
+                "current_liabilities": ["us-gaap:LiabilitiesCurrent"],
+            }
+
+            # Extract each requested metric
+            for metric_name in metric_names:
+                xbrl_concepts = concept_map.get(metric_name, [])
+                if not xbrl_concepts:
+                    logger.warning(f"No XBRL concept mapping for {metric_name}")
+                    continue
+
+                # Try each concept (fallback priority)
+                for concept in xbrl_concepts:
+                    value = self._extract_concept_value(root, concept, matching_contexts)
+
+                    if value is not None:
+                        results[metric_name] = MetricValue(
+                            metric_name=metric_name,
+                            value=value,
+                            unit="USD",
+                            fiscal_year=fiscal_year,
+                            xbrl_concept=concept,
+                            source="XBRL"
+                        )
+                        break
+
+            logger.info(f"Extracted {len(results)} metrics from XBRL")
+
         except self.ET.ParseError as e:
             logger.error(f"Failed to parse XBRL: {e}")
 
@@ -379,10 +419,104 @@ class XBRLParser:
 
     def extract_fiscal_year(self, xbrl_content: str) -> int:
         """Extract fiscal year from XBRL."""
-        # Placeholder: extract from instant date in XBRL contexts
-        return 0
+        if self.ET is None:
+            raise ImportError("xml.etree.ElementTree required for XBRL parsing")
+
+        try:
+            root = self.ET.fromstring(xbrl_content)
+            contexts = self._extract_contexts(root)
+
+            # Return the most recent fiscal year found
+            years = set()
+            for date in contexts.values():
+                if date:
+                    try:
+                        year = int(date[:4])
+                        years.add(year)
+                    except (ValueError, IndexError):
+                        pass
+
+            return max(years) if years else 0
+
+        except self.ET.ParseError:
+            return 0
 
     def get_available_metrics(self, xbrl_content: str) -> List[str]:
         """List all metrics available in XBRL file."""
-        # Placeholder: enumerate all numeric concepts
-        return []
+        if self.ET is None:
+            return []
+
+        try:
+            root = self.ET.fromstring(xbrl_content)
+            metrics = set()
+
+            # Find all elements with us-gaap namespace (typically financial concepts)
+            for elem in root.iter():
+                tag = elem.tag
+                # Check if it's a namespaced element
+                if "}" in tag:
+                    namespace, local_name = tag.split("}", 1)
+                    # Capture us-gaap or other XBRL financial namespaces
+                    if "xbrl.us" in namespace or "xbrl.ifrg" in namespace:
+                        metrics.add(local_name)
+                elif not tag.endswith("context"):  # Skip structural elements
+                    metrics.add(tag)
+
+            return sorted(list(metrics))
+
+        except self.ET.ParseError:
+            return []
+
+    def _extract_contexts(self, root) -> Dict[str, str]:
+        """Extract context mappings: context_id → end_date.
+
+        Returns: {context_id: "YYYY-MM-DD"}
+        """
+        contexts: Dict[str, str] = {}
+
+        # Handle different namespace styles
+        # Try direct children first, then search recursively
+        for context in root:
+            if context.tag.endswith("context"):
+                context_id = context.get("id", "")
+
+                # Find period element or instant
+                for child in context:
+                    tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                    if tag in ("instant", "endDate"):
+                        contexts[context_id] = (child.text or "").strip()
+                        break
+
+        return contexts
+
+    def _extract_concept_value(
+        self, root, concept: str, matching_contexts: List[tuple]
+    ) -> Optional[float]:
+        """Extract numeric value for a concept from matching contexts.
+
+        Args:
+            concept: XBRL concept like "us-gaap:Debt" or just "Debt"
+        """
+
+        matching_ctx_ids = set(ctx_id for ctx_id, _ in matching_contexts)
+
+        # Extract the local concept name (part after :)
+        local_concept = concept.split(":")[-1] if ":" in concept else concept
+
+        for elem in root.iter():
+            # Extract the local name from the full tag (with or without namespace)
+            tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
+            context_ref = elem.get("contextRef", "").strip()
+            text_value = (elem.text or "").strip()
+
+            if tag == local_concept and context_ref in matching_ctx_ids and text_value:
+                try:
+                    value = float(text_value)
+                    # Normalize to millions if needed
+                    if value > 1000000:
+                        value = value / 1000000
+                    return value
+                except ValueError:
+                    continue
+
+        return None
