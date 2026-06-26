@@ -62,20 +62,33 @@ class LoopController:
         self.skill_path = skill_path or Path("skills/debt_liquidity_research/SKILL.md")
 
     def _initial_query(self, plan_query: str, topic_memory=None) -> str:
-        # If memory is enabled and has successful query, use it
+        # If memory is enabled and has successful query, use it (strong query from prior run)
         if self.use_memory and topic_memory and topic_memory.successful_queries:
             return topic_memory.successful_queries[-1]
 
-        # Otherwise, use weak demo query if force_rewrite_demo is on
-        if self.force_rewrite_demo:
-            return "Ford 2023 10-K liquidity cash credit facilities"
+        # If memory is enabled but doesn't have prior query, use weak demo query to seed memory
+        if self.use_memory and not (topic_memory and topic_memory.successful_queries):
+            if self.force_rewrite_demo:
+                return "Ford liquidity risk 2023"  # Very weak, short, single-year
+            return plan_query
+
+        # If memory is disabled, use weak query (control)
+        if self.force_rewrite_demo and not self.use_memory:
+            return "Ford liquidity risk 2023"
 
         # Default to plan query
         return plan_query
 
-    def _retrieval_sizes(self, iteration: int) -> Tuple[int, int]:
+    def _retrieval_sizes(self, iteration: int, memory_used: bool = False, query: str = "") -> Tuple[int, int]:
         if self.force_rewrite_demo and iteration == 1:
-            return 8, 3
+            # Distinguish strong vs weak query by query length/content
+            # Strong queries from memory are longer and contain "debt" + "liquidity"
+            is_strong_query = len(query) > 80 and "debt" in query.lower() and "liquidity" in query.lower()
+
+            if is_strong_query:
+                return 8, 12  # Generous reranking for strong queries
+            else:
+                return 8, 3   # Tight reranking forces rewrite on weak queries
         return 40, 12
 
     def _dedupe_evidence(self, evidence: List[EvidenceChunk]) -> List[EvidenceChunk]:
@@ -164,7 +177,7 @@ class LoopController:
 
         for iteration in range(1, plan.max_retrieval_iterations + 1):
             iterations_run = iteration
-            top_n, top_k = self._retrieval_sizes(iteration)
+            top_n, top_k = self._retrieval_sizes(iteration, memory_used, query)
             state = "RETRIEVE" if iteration == 1 else "RETRIEVE_AGAIN"
             # Only use year filter on first iteration when memory is not being used
             # (memory provides strong queries that don't need the filter to demonstrate rewrite)

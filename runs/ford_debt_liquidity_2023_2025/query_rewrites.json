@@ -2,19 +2,13 @@
   {
     "iteration": 1,
     "missing": [
-      "risk_factors evidence"
+      "2025 evidence",
+      "2023 debt evidence",
+      "2025 debt evidence",
+      "2025 liquidity evidence"
     ],
-    "new_query": "Ford 2023 2025 10-K",
-    "old_query": "Ford 2023 2025 10-K debt liquidity risk long-term debt liquidity capital resources credit facilities management discussion",
-    "reason": "Evidence coverage missing: risk_factors evidence."
-  },
-  {
-    "iteration": 2,
-    "missing": [
-      "risk_factors evidence"
-    ],
-    "new_query": "Ford 2023 2025 10-K",
-    "old_query": "Ford 2023 2025 10-K",
-    "reason": "Evidence coverage missing: risk_factors evidence."
+    "new_query": "Ford 2023 2025 10-K debt long-term debt debt maturities debt and commitments company debt excluding Ford Credit liquidity capital resources cash marketable securities available liquidity 2025 liquidity capital resources long-term debt committed credit facilities",
+    "old_query": "Ford liquidity risk 2023",
+    "reason": "Evidence coverage missing: 2025 evidence, 2023 debt evidence, 2025 debt evidence, 2025 liquidity evidence."
   }
 ]

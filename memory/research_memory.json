@@ -4,19 +4,17 @@
       "useful_sections": [
         "Debt and Commitments",
         "Liquidity and Capital Resources",
+        "Total Debt Maturities",
         "Other unsecured credit facilities",
+        "DEBT AND COMMITMENTS",
         "Management's Discussion and Analysis",
-        "Committed Credit Facilities",
-        "Debt",
-        "Total Debt Maturities"
+        "Memo: Unsecured long-term debt maturities"
       ],
       "successful_queries": [
-        "Ford 2023 2025 10-K debt liquidity risk long-term debt liquidity capital resources credit facilities management discussion",
-        "Ford 2023 2025 10-K"
+        "Ford 2023 2025 10-K debt long-term debt debt maturities debt and commitments company debt excluding Ford Credit liquidity capital resources cash marketable securities available liquidity 2025 liquidity capital resources long-term debt committed credit facilities"
       ],
       "failed_queries": [
-        "Ford 2023 2025 10-K debt liquidity risk long-term debt liquidity capital resources credit facilities management discussion",
-        "Ford 2023 2025 10-K"
+        "Ford liquidity risk 2023"
       ],
       "prior_evidence_paths": [
         "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/evidence_table.json"
@@ -33,7 +31,7 @@
         "ford_credit_liquidity_sources",
         "ford_credit_committed_capacity"
       ],
-      "last_updated": "2026-06-26T03:03:54.335968"
+      "last_updated": "2026-06-26T03:13:59.241917"
     }
   }
 }
