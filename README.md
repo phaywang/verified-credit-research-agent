@@ -142,6 +142,25 @@ The UI shows:
 
 See [docs/ui_demo.md](docs/ui_demo.md) for UI details.
 
+## M4 Minimal MCP Server
+
+M4.3 adds a real, minimal MCP server as a post-M3 integration layer. It is read-only and currently supports the Ford demo scope only.
+
+Start the server:
+
+```bash
+python3 -m credit_research_agent.mcp.server
+```
+
+Exposed tools:
+
+- `hybrid_retrieve`: searches Ford SEC filing evidence through the existing M3 retrieval pipeline.
+- `verify_numeric_claim`: verifies a Ford debt/liquidity metric through the existing deterministic M3 verification path.
+
+The MCP layer does not expose the LLM synthesizer, semantic critic, full ReAct loop, or live Bedrock demo runner.
+
+See [docs/mcp.md](docs/mcp.md) for tool schemas and usage.
+
 ## Local Verification
 
 Run the test suite:
