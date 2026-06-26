@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List
 
 from credit_research_agent.schemas import EvidenceChunk, EvidenceCoverage, TaskSpec
+
+if TYPE_CHECKING:
+    from credit_research_agent.skills.skill_loader import ResearchSkill
 
 
 DEBT_TERMS = [
@@ -74,8 +77,19 @@ def check_evidence_coverage(
     evidence: List[EvidenceChunk],
     iteration: int = 1,
     max_iterations: int = 3,
+    skill: ResearchSkill | None = None,
 ) -> EvidenceCoverage:
-    """Check whether selected evidence covers years and debt/liquidity categories."""
+    """Check whether selected evidence covers years and debt/liquidity categories.
+
+    If skill is provided, required evidence categories come from skill.required_evidence_categories.
+    Otherwise, defaults to [debt, liquidity, management_explanation, numeric_facts].
+    """
+
+    # Determine required categories from skill or defaults
+    if skill is not None:
+        required_categories = set(skill.required_evidence_categories)
+    else:
+        required_categories = {"debt", "liquidity", "management_explanation", "numeric_facts"}
 
     support: Dict[str, List[str]] = {}
     required_years = set(task_spec.years)
@@ -126,16 +140,29 @@ def check_evidence_coverage(
         missing.append("2023 evidence")
     if 2025 in required_years and not coverage.has_2025_evidence:
         missing.append("2025 evidence")
-    if not coverage.has_debt_evidence:
+    if not coverage.has_debt_evidence and "debt" in required_categories:
         for year in sorted(required_years - debt_years):
             missing.append(f"{year} debt evidence")
-    if not coverage.has_liquidity_evidence:
+    if not coverage.has_liquidity_evidence and "liquidity" in required_categories:
         for year in sorted(required_years - liquidity_years):
             missing.append(f"{year} liquidity evidence")
-    if not coverage.has_management_explanation:
+    if not coverage.has_management_explanation and "management_explanation" in required_categories:
         missing.append("management explanation")
-    if not coverage.has_numeric_facts:
+    if not coverage.has_numeric_facts and "numeric_facts" in required_categories:
         missing.append("numeric facts")
+
+    # Check for any other required categories from skill
+    if skill is not None:
+        for category in required_categories:
+            if category not in ["debt", "liquidity", "management_explanation", "numeric_facts"]:
+                # Check if evidence contains this category
+                has_category = False
+                for chunk in evidence:
+                    if category in [c.lower() for c in chunk.evidence_category]:
+                        has_category = True
+                        break
+                if not has_category:
+                    missing.append(f"{category} evidence")
 
     coverage.missing = missing
     if not missing:

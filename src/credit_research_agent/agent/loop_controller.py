@@ -13,6 +13,12 @@ from credit_research_agent.agent.synthesizer import synthesize_final_answer
 from credit_research_agent.agent.task_parser import parse_task
 from credit_research_agent.config import DATA_DIR, DEFAULT_RUN_ID
 from credit_research_agent.evaluation.metrics import compute_evaluation_summary
+from credit_research_agent.memory.research_memory import (
+    MemoryRunSummary,
+    ResearchMemory,
+    section_boosts_from_memory,
+    select_initial_query,
+)
 from credit_research_agent.retrieval.chunk_store import load_chunks_jsonl
 from credit_research_agent.retrieval.hybrid_retriever import HybridRetriever, RetrievalFilters
 from credit_research_agent.retrieval.reranker import Reranker
@@ -25,6 +31,7 @@ from credit_research_agent.schemas import (
     TraceStep,
     write_json,
 )
+from credit_research_agent.skills.skill_loader import load_debt_liquidity_skill
 from credit_research_agent.verification.fact_extractor import extract_numeric_facts
 from credit_research_agent.verification.fact_store import FactStore
 from credit_research_agent.verification.numeric_claim_extractor import propose_numeric_claims
@@ -44,14 +51,25 @@ class LoopController:
         self,
         run_id: str = DEFAULT_RUN_ID,
         force_rewrite_demo: bool = False,
+        use_memory: bool = True,
+        memory_path: Path | None = None,
+        skill_path: Path | None = None,
     ) -> None:
         self.run_id = run_id
         self.force_rewrite_demo = force_rewrite_demo
+        self.use_memory = use_memory
+        self.memory_path = memory_path or Path("memory/research_memory.json")
+        self.skill_path = skill_path or Path("skills/debt_liquidity_research/SKILL.md")
 
-    def _initial_query(self, plan_query: str) -> str:
-        if not self.force_rewrite_demo:
-            return plan_query
-        return "Ford 2023 10-K liquidity cash credit facilities"
+    def _initial_query(self, plan_query: str, topic_memory=None) -> str:
+        # Use memory's successful query if available and enabled
+        selected = select_initial_query(plan_query, topic_memory, self.use_memory)
+
+        # If not using memory, return weak demo query when force_rewrite_demo is on
+        if not self.use_memory and self.force_rewrite_demo:
+            return "Ford 2023 10-K liquidity cash credit facilities"
+
+        return selected
 
     def _retrieval_sizes(self, iteration: int) -> Tuple[int, int]:
         if self.force_rewrite_demo and iteration == 1:
@@ -68,7 +86,6 @@ class LoopController:
         workspace = create_run_workspace(self.run_id)
         task_spec = parse_task(question)
         plan = create_plan(task_spec)
-        query = self._initial_query(plan.initial_query)
 
         workspace.write_task(question)
         workspace.write_task_spec(task_spec)
@@ -87,6 +104,50 @@ class LoopController:
                 outputs={"plan_path": str(workspace.artifact_path("plan"))},
             )
         )
+
+        # READ_MEMORY: Load memory and select initial query
+        memory = ResearchMemory(self.memory_path)
+        memory.load()
+        topic_memory = memory.get_topic_memory("Ford Motor Company", "debt_liquidity")
+        memory_used = self.use_memory and topic_memory is not None
+        selected_query = self._initial_query(plan.initial_query, topic_memory)
+        boosts = section_boosts_from_memory(topic_memory, self.use_memory)
+
+        trace.log_step(
+            TraceStep(
+                state="READ_MEMORY",
+                summary="Loaded research memory and selected initial query.",
+                parameters={
+                    "memory_used": memory_used,
+                    "memory_path": str(self.memory_path),
+                    "selected_initial_query": selected_query,
+                    "useful_sections": topic_memory.useful_sections if topic_memory else [],
+                    "section_boosts": boosts,
+                },
+            )
+        )
+
+        # LOAD_SKILL: Load and parse skill file
+        skill = None
+        try:
+            if self.skill_path.exists():
+                skill = load_debt_liquidity_skill(self.skill_path)
+                trace.log_step(
+                    TraceStep(
+                        state="LOAD_SKILL",
+                        summary="Loaded debt/liquidity research skill.",
+                        parameters={
+                            "skill_path": str(self.skill_path),
+                            "skill_name": skill.name,
+                            "required_evidence_categories": skill.required_evidence_categories,
+                            "require_verified_numeric_conclusions": skill.require_verified_numeric_conclusions,
+                        },
+                    )
+                )
+        except Exception:
+            pass  # If skill loading fails, continue without it
+
+        query = selected_query
 
         chunk_path = DATA_DIR / "processed" / "ford_2023_2025_chunks.jsonl"
         chunks = load_chunks_jsonl(chunk_path)
@@ -141,6 +202,7 @@ class LoopController:
                 all_evidence,
                 iteration=iteration,
                 max_iterations=plan.max_retrieval_iterations,
+                skill=skill,
             )
             trace.log_step(
                 TraceStep(
@@ -335,6 +397,42 @@ class LoopController:
                 parameters=evaluation_summary.model_dump(mode="json"),
             )
         )
+
+        # UPDATE_MEMORY: Persist successful query and useful sections
+        if self.use_memory:
+            verified_metrics = [
+                result.metric_name
+                for result in verification_results
+                if result.status == "verified"
+            ]
+            memory_summary = MemoryRunSummary(
+                company="Ford Motor Company",
+                ticker="F",
+                risk_theme="debt_liquidity",
+                successful_query=selected_query,
+                failed_queries=[r["old_query"] for r in query_rewrites],
+                useful_sections=[chunk.section_name for chunk in all_evidence if chunk.section_name],
+                verified_metrics=verified_metrics,
+                evidence_path=str(workspace.artifact_path("evidence_table")),
+            )
+            memory_update = memory.update_from_run(memory_summary)
+            memory.save()
+            write_json(workspace.artifact_path("memory_update"), {
+                "successful_queries_added": memory_update.successful_queries_added,
+                "useful_sections_added": memory_update.useful_sections_added,
+                "verified_metrics_added": memory_update.verified_metrics_added,
+            })
+            trace.log_step(
+                TraceStep(
+                    state="UPDATE_MEMORY",
+                    summary="Updated research memory with successful query and useful sections.",
+                    parameters={
+                        "successful_queries_added": memory_update.successful_queries_added,
+                        "useful_sections_added": memory_update.useful_sections_added,
+                        "verified_metrics_added": memory_update.verified_metrics_added,
+                    },
+                )
+            )
 
         metrics = FinalMetrics(
             citation_coverage=(

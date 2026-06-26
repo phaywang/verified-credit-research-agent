@@ -19,10 +19,16 @@ def main() -> None:
         action="store_true",
         help="Use a deliberately narrow first query so the trace demonstrates query rewrite.",
     )
+    parser.add_argument(
+        "--no-memory",
+        action="store_true",
+        help="Disable memory; useful for control runs and testing.",
+    )
     args = parser.parse_args()
 
     workspace = LoopController(
         force_rewrite_demo=args.force_rewrite_demo,
+        use_memory=not args.no_memory,
     ).run(args.question)
 
     print(f"Final answer: {workspace.artifact_path('final_answer')}")
