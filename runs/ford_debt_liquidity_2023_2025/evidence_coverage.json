@@ -1,0 +1,65 @@
+{
+  "decision": "sufficient",
+  "has_2023_evidence": true,
+  "has_2025_evidence": true,
+  "has_debt_evidence": true,
+  "has_liquidity_evidence": true,
+  "has_management_explanation": true,
+  "has_numeric_facts": true,
+  "missing": [],
+  "supporting_chunk_ids": {
+    "has_2023_evidence": [
+      "F_2023_10K_debt_009",
+      "F_2023_10K_liquidity_001",
+      "F_2023_10K_credit_facilities_002",
+      "F_2023_10K_debt_011",
+      "F_2023_10K_credit_facilities_003",
+      "F_2023_10K_debt_010",
+      "F_2023_10K_mda_027",
+      "F_2023_10K_debt_003"
+    ],
+    "has_2025_evidence": [
+      "F_2025_10K_debt_008",
+      "F_2025_10K_liquidity_001",
+      "F_2025_10K_debt_010",
+      "F_2025_10K_credit_facilities_002",
+      "F_2025_10K_mda_028"
+    ],
+    "has_debt_evidence": [
+      "F_2023_10K_debt_009",
+      "F_2025_10K_debt_008",
+      "F_2025_10K_debt_010",
+      "F_2023_10K_debt_011",
+      "F_2023_10K_debt_010",
+      "F_2023_10K_debt_003"
+    ],
+    "has_liquidity_evidence": [
+      "F_2025_10K_liquidity_001",
+      "F_2023_10K_liquidity_001",
+      "F_2023_10K_credit_facilities_002",
+      "F_2023_10K_credit_facilities_003",
+      "F_2023_10K_mda_027",
+      "F_2025_10K_credit_facilities_002",
+      "F_2025_10K_mda_028"
+    ],
+    "has_management_explanation": [
+      "F_2023_10K_mda_027",
+      "F_2025_10K_mda_028"
+    ],
+    "has_numeric_facts": [
+      "F_2023_10K_debt_009",
+      "F_2025_10K_debt_008",
+      "F_2025_10K_liquidity_001",
+      "F_2023_10K_liquidity_001",
+      "F_2023_10K_credit_facilities_002",
+      "F_2025_10K_debt_010",
+      "F_2023_10K_debt_011",
+      "F_2023_10K_credit_facilities_003",
+      "F_2023_10K_debt_010",
+      "F_2023_10K_mda_027",
+      "F_2025_10K_credit_facilities_002",
+      "F_2025_10K_mda_028",
+      "F_2023_10K_debt_003"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "initial_query": "Ford 2023 2025 10-K debt liquidity risk long-term debt liquidity capital resources credit facilities management discussion",
+  "max_retrieval_iterations": 3,
+  "objective": "Compare Ford debt and liquidity risk evidence between the requested comparison years.",
+  "research_steps": [
+    "Retrieve debt evidence for both years",
+    "Retrieve liquidity and capital resources evidence for both years",
+    "Retrieve management explanations from MD&A or liquidity sections",
+    "Check whether evidence covers both years and required categories",
+    "Rewrite targeted queries for missing categories",
+    "Synthesize only cited conclusions"
+  ]
+}

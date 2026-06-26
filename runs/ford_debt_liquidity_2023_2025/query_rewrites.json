@@ -1,0 +1,15 @@
+[
+  {
+    "iteration": 1,
+    "missing": [
+      "2025 evidence",
+      "2023 debt evidence",
+      "2025 debt evidence",
+      "2025 liquidity evidence",
+      "management explanation"
+    ],
+    "new_query": "Ford 2023 2025 10-K debt long-term debt debt maturities debt and commitments company debt excluding Ford Credit liquidity capital resources cash marketable securities available liquidity management discussion MD&A liquidity profile funding diversified we manage reflecting 2025 liquidity capital resources long-term debt committed credit facilities",
+    "old_query": "Ford 2023 10-K liquidity cash credit facilities",
+    "reason": "Evidence coverage missing: 2025 evidence, 2023 debt evidence, 2025 debt evidence, 2025 liquidity evidence, management explanation."
+  }
+]

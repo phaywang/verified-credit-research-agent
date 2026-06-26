@@ -1,0 +1,179 @@
+{
+  "chunk_count": 186,
+  "chunk_counts": [
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "Committed Credit Facilities",
+      "section_type": "credit_facilities"
+    },
+    {
+      "chunk_count": 2,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "Other unsecured credit facilities",
+      "section_type": "credit_facilities"
+    },
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "DEBT AND COMMITMENTS",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 6,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "Debt",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 9,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "Debt and Commitments",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "Memo: Unsecured long-term debt maturities",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "Total Debt Maturities",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "Liquidity and Capital Resources",
+      "section_type": "liquidity"
+    },
+    {
+      "chunk_count": 48,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "Management's Discussion and Analysis",
+      "section_type": "mda"
+    },
+    {
+      "chunk_count": 20,
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "section_name": "Risk Factors",
+      "section_type": "risk_factors"
+    },
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "Committed Credit Facilities",
+      "section_type": "credit_facilities"
+    },
+    {
+      "chunk_count": 2,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "Other unsecured credit facilities",
+      "section_type": "credit_facilities"
+    },
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "DEBT AND COMMITMENTS",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 5,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "Debt",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 7,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "Debt and Commitments",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "Memo: Unsecured long-term debt maturities",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "Total Debt Maturities",
+      "section_type": "debt"
+    },
+    {
+      "chunk_count": 1,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "Liquidity and Capital Resources",
+      "section_type": "liquidity"
+    },
+    {
+      "chunk_count": 52,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "Management's Discussion and Analysis",
+      "section_type": "mda"
+    },
+    {
+      "chunk_count": 25,
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "section_name": "Risk Factors",
+      "section_type": "risk_factors"
+    }
+  ],
+  "chunk_path": "/Users/wangfei/projects/Verified Credit Research Agent/data/processed/ford_2023_2025_chunks.jsonl",
+  "documents": [
+    {
+      "accession_number": "0000037996-24-000009",
+      "cik": "0000037996",
+      "company": "Ford Motor Company",
+      "filing_date": "2024-02-07",
+      "filing_type": "10-K",
+      "fiscal_year": 2023,
+      "is_substitution": false,
+      "local_path": "/Users/wangfei/projects/Verified Credit Research Agent/data/raw/sec/ford/2023/filing.html",
+      "requested_filing_type": "10-K",
+      "requested_fiscal_year": 2023,
+      "source_url": "https://www.sec.gov/Archives/edgar/data/37996/000003799624000009/f-20231231.htm",
+      "substitution_note": null,
+      "ticker": "F"
+    },
+    {
+      "accession_number": "0000037996-26-000015",
+      "cik": "0000037996",
+      "company": "Ford Motor Company",
+      "filing_date": "2026-02-11",
+      "filing_type": "10-K",
+      "fiscal_year": 2025,
+      "is_substitution": false,
+      "local_path": "/Users/wangfei/projects/Verified Credit Research Agent/data/raw/sec/ford/2025/filing.html",
+      "requested_filing_type": "10-K",
+      "requested_fiscal_year": 2025,
+      "source_url": "https://www.sec.gov/Archives/edgar/data/37996/000003799626000015/f-20251231.htm",
+      "substitution_note": null,
+      "ticker": "F"
+    }
+  ],
+  "section_count": 125
+}

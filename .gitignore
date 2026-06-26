@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Raw SEC filings are reproducible and much larger than the demo workpapers.
+data/raw/
+
+# Local environment and model/dependency caches.
+.env
+.venv/
+venv/
+*.egg-info/
+

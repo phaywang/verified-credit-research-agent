@@ -1,0 +1,423 @@
+{
+  "artifacts": {
+    "critic_report": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/critic_report.json",
+    "evidence_coverage": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/evidence_coverage.json",
+    "evidence_table": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/evidence_table.json",
+    "final_answer": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/final_answer.md",
+    "plan": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/plan.json",
+    "query_rewrites": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/query_rewrites.json",
+    "reranked_chunks": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/reranked_chunks.json",
+    "retrieved_chunks": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/retrieved_chunks.json",
+    "task": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/task.md",
+    "task_spec": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/task_spec.json",
+    "trace_log": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/trace_log.json"
+  },
+  "created_at": "2026-06-25T22:07:11.814854",
+  "final_metrics": {
+    "citation_coverage": 1.0,
+    "evidence_coverage_passed": true,
+    "retrieval_iterations": 2,
+    "rewrite_count": 1,
+    "substitution_used": false,
+    "unsupported_claim_count": 0
+  },
+  "loop_iterations": 2,
+  "run_id": "ford_debt_liquidity_2023_2025",
+  "status": "completed",
+  "steps": [
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": null,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {
+        "plan_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/plan.json"
+      },
+      "parameters": {},
+      "query": null,
+      "reason": null,
+      "state": "PLAN",
+      "summary": "Created deterministic Ford debt/liquidity research plan.",
+      "timestamp": "2026-06-25T22:07:11.815091",
+      "tools_called": [],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": 1,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {},
+      "parameters": {
+        "filters": {
+          "filing_types": null,
+          "years": [
+            2023
+          ]
+        },
+        "rrf_k": 60,
+        "top_n": 8
+      },
+      "query": "Ford 2023 10-K liquidity cash credit facilities",
+      "reason": null,
+      "state": "RETRIEVE",
+      "summary": "Retrieved 8 fused candidates.",
+      "timestamp": "2026-06-25T22:07:16.794916",
+      "tools_called": [
+        "bm25_search",
+        "vector_search",
+        "rrf_fusion"
+      ],
+      "top_chunks": [
+        "F_2023_10K_credit_facilities_002",
+        "F_2023_10K_liquidity_001",
+        "F_2023_10K_credit_facilities_001",
+        "F_2023_10K_mda_028",
+        "F_2023_10K_debt_016",
+        "F_2023_10K_credit_facilities_003",
+        "F_2023_10K_debt_004",
+        "F_2023_10K_mda_027"
+      ]
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": 1,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {},
+      "parameters": {
+        "top_k": 3
+      },
+      "query": "Ford 2023 10-K liquidity cash credit facilities",
+      "reason": null,
+      "state": "RERANK",
+      "summary": "Reranked to 3 evidence chunks.",
+      "timestamp": "2026-06-25T22:07:16.902532",
+      "tools_called": [
+        "local_embedding_reranker"
+      ],
+      "top_chunks": [
+        "F_2023_10K_credit_facilities_002",
+        "F_2023_10K_liquidity_001",
+        "F_2023_10K_credit_facilities_003"
+      ]
+    },
+    {
+      "coverage": {
+        "decision": "rewrite_query",
+        "has_2023_evidence": true,
+        "has_2025_evidence": false,
+        "has_debt_evidence": false,
+        "has_liquidity_evidence": false,
+        "has_management_explanation": false,
+        "has_numeric_facts": true,
+        "missing": [
+          "2025 evidence",
+          "2023 debt evidence",
+          "2025 debt evidence",
+          "2025 liquidity evidence",
+          "management explanation"
+        ],
+        "supporting_chunk_ids": {
+          "has_2023_evidence": [
+            "F_2023_10K_credit_facilities_002",
+            "F_2023_10K_liquidity_001",
+            "F_2023_10K_credit_facilities_003"
+          ],
+          "has_liquidity_evidence": [
+            "F_2023_10K_credit_facilities_002",
+            "F_2023_10K_liquidity_001",
+            "F_2023_10K_credit_facilities_003"
+          ],
+          "has_numeric_facts": [
+            "F_2023_10K_credit_facilities_002",
+            "F_2023_10K_liquidity_001",
+            "F_2023_10K_credit_facilities_003"
+          ]
+        }
+      },
+      "decision": "rewrite_query",
+      "error": null,
+      "inputs": {},
+      "iteration": 1,
+      "missing": [
+        "2025 evidence",
+        "2023 debt evidence",
+        "2025 debt evidence",
+        "2025 liquidity evidence",
+        "management explanation"
+      ],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {},
+      "parameters": {},
+      "query": null,
+      "reason": null,
+      "state": "EVIDENCE_CHECK",
+      "summary": "Checked evidence coverage using year metadata, section metadata, and substantive content signals.",
+      "timestamp": "2026-06-25T22:07:16.903009",
+      "tools_called": [],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": 1,
+      "missing": [
+        "2025 evidence",
+        "2023 debt evidence",
+        "2025 debt evidence",
+        "2025 liquidity evidence",
+        "management explanation"
+      ],
+      "new_query": "Ford 2023 2025 10-K debt long-term debt debt maturities debt and commitments company debt excluding Ford Credit liquidity capital resources cash marketable securities available liquidity management discussion MD&A liquidity profile funding diversified we manage reflecting 2025 liquidity capital resources long-term debt committed credit facilities",
+      "old_query": "Ford 2023 10-K liquidity cash credit facilities",
+      "outputs": {},
+      "parameters": {},
+      "query": null,
+      "reason": "Evidence coverage missing: 2025 evidence, 2023 debt evidence, 2025 debt evidence, 2025 liquidity evidence, management explanation.",
+      "state": "QUERY_REWRITE",
+      "summary": "Rewrote query to target missing evidence coverage.",
+      "timestamp": "2026-06-25T22:07:16.903217",
+      "tools_called": [],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": 2,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {},
+      "parameters": {
+        "filters": null,
+        "rrf_k": 60,
+        "top_n": 40
+      },
+      "query": "Ford 2023 2025 10-K debt long-term debt debt maturities debt and commitments company debt excluding Ford Credit liquidity capital resources cash marketable securities available liquidity management discussion MD&A liquidity profile funding diversified we manage reflecting 2025 liquidity capital resources long-term debt committed credit facilities",
+      "reason": null,
+      "state": "RETRIEVE_AGAIN",
+      "summary": "Retrieved 40 fused candidates.",
+      "timestamp": "2026-06-25T22:07:16.915518",
+      "tools_called": [
+        "bm25_search",
+        "vector_search",
+        "rrf_fusion"
+      ],
+      "top_chunks": [
+        "F_2025_10K_liquidity_001",
+        "F_2025_10K_mda_028",
+        "F_2023_10K_mda_027",
+        "F_2023_10K_mda_029",
+        "F_2023_10K_liquidity_001",
+        "F_2025_10K_mda_030",
+        "F_2023_10K_credit_facilities_002",
+        "F_2025_10K_credit_facilities_002",
+        "F_2025_10K_mda_029",
+        "F_2023_10K_debt_016"
+      ]
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": 2,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {},
+      "parameters": {
+        "top_k": 12
+      },
+      "query": "Ford 2023 2025 10-K debt long-term debt debt maturities debt and commitments company debt excluding Ford Credit liquidity capital resources cash marketable securities available liquidity management discussion MD&A liquidity profile funding diversified we manage reflecting 2025 liquidity capital resources long-term debt committed credit facilities",
+      "reason": null,
+      "state": "RERANK",
+      "summary": "Reranked to 12 evidence chunks.",
+      "timestamp": "2026-06-25T22:07:17.410657",
+      "tools_called": [
+        "local_embedding_reranker"
+      ],
+      "top_chunks": [
+        "F_2023_10K_debt_009",
+        "F_2025_10K_debt_008",
+        "F_2025_10K_liquidity_001",
+        "F_2023_10K_liquidity_001",
+        "F_2025_10K_debt_010",
+        "F_2023_10K_debt_011",
+        "F_2023_10K_credit_facilities_002",
+        "F_2023_10K_debt_010",
+        "F_2023_10K_mda_027",
+        "F_2025_10K_credit_facilities_002",
+        "F_2025_10K_mda_028",
+        "F_2023_10K_debt_003"
+      ]
+    },
+    {
+      "coverage": {
+        "decision": "sufficient",
+        "has_2023_evidence": true,
+        "has_2025_evidence": true,
+        "has_debt_evidence": true,
+        "has_liquidity_evidence": true,
+        "has_management_explanation": true,
+        "has_numeric_facts": true,
+        "missing": [],
+        "supporting_chunk_ids": {
+          "has_2023_evidence": [
+            "F_2023_10K_debt_009",
+            "F_2023_10K_liquidity_001",
+            "F_2023_10K_credit_facilities_002",
+            "F_2023_10K_debt_011",
+            "F_2023_10K_credit_facilities_003",
+            "F_2023_10K_debt_010",
+            "F_2023_10K_mda_027",
+            "F_2023_10K_debt_003"
+          ],
+          "has_2025_evidence": [
+            "F_2025_10K_debt_008",
+            "F_2025_10K_liquidity_001",
+            "F_2025_10K_debt_010",
+            "F_2025_10K_credit_facilities_002",
+            "F_2025_10K_mda_028"
+          ],
+          "has_debt_evidence": [
+            "F_2023_10K_debt_009",
+            "F_2025_10K_debt_008",
+            "F_2025_10K_debt_010",
+            "F_2023_10K_debt_011",
+            "F_2023_10K_debt_010",
+            "F_2023_10K_debt_003"
+          ],
+          "has_liquidity_evidence": [
+            "F_2025_10K_liquidity_001",
+            "F_2023_10K_liquidity_001",
+            "F_2023_10K_credit_facilities_002",
+            "F_2023_10K_credit_facilities_003",
+            "F_2023_10K_mda_027",
+            "F_2025_10K_credit_facilities_002",
+            "F_2025_10K_mda_028"
+          ],
+          "has_management_explanation": [
+            "F_2023_10K_mda_027",
+            "F_2025_10K_mda_028"
+          ],
+          "has_numeric_facts": [
+            "F_2023_10K_debt_009",
+            "F_2025_10K_debt_008",
+            "F_2025_10K_liquidity_001",
+            "F_2023_10K_liquidity_001",
+            "F_2023_10K_credit_facilities_002",
+            "F_2025_10K_debt_010",
+            "F_2023_10K_debt_011",
+            "F_2023_10K_credit_facilities_003",
+            "F_2023_10K_debt_010",
+            "F_2023_10K_mda_027",
+            "F_2025_10K_credit_facilities_002",
+            "F_2025_10K_mda_028",
+            "F_2023_10K_debt_003"
+          ]
+        }
+      },
+      "decision": "sufficient",
+      "error": null,
+      "inputs": {},
+      "iteration": 2,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {},
+      "parameters": {},
+      "query": null,
+      "reason": null,
+      "state": "EVIDENCE_CHECK",
+      "summary": "Checked evidence coverage using year metadata, section metadata, and substantive content signals.",
+      "timestamp": "2026-06-25T22:07:17.411552",
+      "tools_called": [],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": null,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {
+        "final_answer_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/final_answer.md"
+      },
+      "parameters": {},
+      "query": null,
+      "reason": null,
+      "state": "SYNTHESIZE",
+      "summary": "Generated deterministic cited credit research brief.",
+      "timestamp": "2026-06-25T22:07:17.416301",
+      "tools_called": [],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": "finalize",
+      "error": null,
+      "inputs": {},
+      "iteration": null,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {
+        "critic_report_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/critic_report.json"
+      },
+      "parameters": {},
+      "query": null,
+      "reason": null,
+      "state": "CRITIC",
+      "summary": "Checked final answer claims against retrieved evidence chunk IDs.",
+      "timestamp": "2026-06-25T22:07:17.416679",
+      "tools_called": [],
+      "top_chunks": []
+    },
+    {
+      "coverage": null,
+      "decision": null,
+      "error": null,
+      "inputs": {},
+      "iteration": null,
+      "missing": [],
+      "new_query": null,
+      "old_query": null,
+      "outputs": {
+        "final_answer_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/final_answer.md",
+        "trace_log_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/trace_log.json"
+      },
+      "parameters": {},
+      "query": null,
+      "reason": null,
+      "state": "FINALIZE",
+      "summary": "Finalized workpaper artifacts and trace log.",
+      "timestamp": "2026-06-25T22:07:17.416907",
+      "tools_called": [],
+      "top_chunks": []
+    }
+  ],
+  "task": "How did Ford's debt and liquidity risk change from 2023 to 2025, and what evidence supports the change?",
+  "task_spec_path": "/Users/wangfei/projects/Verified Credit Research Agent/runs/ford_debt_liquidity_2023_2025/task_spec.json"
+}

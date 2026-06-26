@@ -1,0 +1,22 @@
+{
+  "cik": "0000037996",
+  "company": "Ford Motor Company",
+  "filing_types": [
+    "10-K"
+  ],
+  "question": "How did Ford's debt and liquidity risk change from 2023 to 2025, and what evidence supports the change?",
+  "required_evidence": [
+    "2023 debt evidence",
+    "2025 debt evidence",
+    "2023 liquidity evidence",
+    "2025 liquidity evidence",
+    "management explanation",
+    "numeric facts"
+  ],
+  "risk_theme": "debt_liquidity",
+  "ticker": "F",
+  "years": [
+    2023,
+    2025
+  ]
+}
