@@ -370,36 +370,10 @@ def inject_css() -> None:
     font-size: 0.76rem;
     margin-bottom: 8px;
   }
-  div[data-testid="stCheckbox"] {
-    margin-bottom: 5px;
-  }
-  div[data-testid="stCheckbox"] label {
-    width: 100%;
-    min-height: 34px;
-    border: 1px solid #d9dee7;
-    background: #ffffff;
+  div[data-testid="stPills"] button {
     border-radius: 7px;
-    padding: 6px 8px;
-    display: flex;
-    align-items: center;
-    transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
-  }
-  div[data-testid="stCheckbox"] label:hover {
-    border-color: #a8b3c5;
-    background: #fbfcfe;
-  }
-  div[data-testid="stCheckbox"] label:has(input:checked) {
-    border-color: #9f1d35;
-    background: #fff3f5;
-    box-shadow: inset 3px 0 0 #9f1d35;
-  }
-  div[data-testid="stCheckbox"] label p {
-    color: #344054;
-    font-size: 0.82rem;
-    font-weight: 650;
-  }
-  div[data-testid="stCheckbox"] label:has(input:checked) p {
-    color: #7f1d2d;
+    font-weight: 700;
+    min-height: 34px;
   }
   .workflow-step {
     border: 1px solid var(--line);
@@ -750,16 +724,15 @@ def selector_key(prefix: str, label: Any) -> str:
     return f"{prefix}_{safe}"
 
 
-def checkbox_chip_selector(
+def pill_selector(
     *,
     title: str,
     help_text: str,
     options: List[Any],
     defaults: List[Any],
     key_prefix: str,
-    columns: int,
 ) -> List[Any]:
-    """Render a compact checkbox-chip selector and return selected values."""
+    """Render a compact multi-select pill selector and return selected values."""
     with st.container(border=True):
         st.markdown(
             f"""
@@ -768,18 +741,15 @@ def checkbox_chip_selector(
 """,
             unsafe_allow_html=True,
         )
-        selected = []
-        grid = st.columns(columns)
-        for index, option in enumerate(options):
-            with grid[index % columns]:
-                checked = st.checkbox(
-                    str(option),
-                    value=option in defaults,
-                    key=selector_key(key_prefix, option),
-                )
-                if checked:
-                    selected.append(option)
-    return selected
+        selected = st.pills(
+            title,
+            options,
+            selection_mode="multi",
+            default=defaults,
+            key=key_prefix,
+            label_visibility="collapsed",
+        )
+    return list(selected or [])
 
 
 def render_live_sec_analysis() -> None:
@@ -814,22 +784,20 @@ def render_live_sec_analysis() -> None:
                 ).strip()
                 selector_cols = st.columns([1.15, 0.85], gap="medium")
                 with selector_cols[0]:
-                    theme_labels = checkbox_chip_selector(
+                    theme_labels = pill_selector(
                         title="Risk themes",
                         help_text="Select one or more credit risk lenses.",
                         options=list(RISK_THEMES.keys()),
                         defaults=sample_themes,
                         key_prefix=f"{preset_key}_theme",
-                        columns=2,
                     )
                 with selector_cols[1]:
-                    years = checkbox_chip_selector(
+                    years = pill_selector(
                         title="Fiscal years",
                         help_text="Two or more years enable trend analysis.",
                         options=FISCAL_YEAR_OPTIONS,
                         defaults=sample_years,
                         key_prefix=f"{preset_key}_year",
-                        columns=2,
                     )
                 include_llm_workpaper = st.checkbox(
                     "Generate detailed LLM stage workpaper",
