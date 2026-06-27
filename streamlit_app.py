@@ -36,11 +36,13 @@ RISK_THEMES = {
     "Cash Flow Coverage": "cash_flow_coverage",
 }
 
+FISCAL_YEAR_OPTIONS = [2025, 2024, 2023, 2022, 2021, 2020, 2019]
+
 LIVE_SAMPLE_CASES = {
-    "Apple leverage: AAPL 2023-2024": ("AAPL", "Leverage Analysis", "2023, 2024"),
-    "Tesla leverage: TSLA 2023-2024": ("TSLA", "Leverage Analysis", "2023, 2024"),
-    "NVIDIA leverage: NVDA 2024-2025": ("NVDA", "Leverage Analysis", "2024, 2025"),
-    "Custom": ("AAPL", "Leverage Analysis", "2023, 2024"),
+    "Apple leverage: AAPL 2023-2024": ("AAPL", ["Leverage Analysis"], [2024, 2023]),
+    "Tesla leverage: TSLA 2023-2024": ("TSLA", ["Leverage Analysis"], [2024, 2023]),
+    "NVIDIA leverage: NVDA 2024-2025": ("NVDA", ["Leverage Analysis"], [2025, 2024]),
+    "Custom": ("Apple", ["Leverage Analysis"], [2024, 2023]),
 }
 
 
@@ -700,10 +702,6 @@ def get_universal_analyzer() -> UniversalCreditAnalyzer:
     return UniversalCreditAnalyzer()
 
 
-def parse_years(year_text: str) -> List[int]:
-    return [int(part.strip()) for part in year_text.split(",") if part.strip()]
-
-
 def render_live_sec_analysis() -> None:
     st.markdown('<div class="section-kicker">Research console</div>', unsafe_allow_html=True)
     st.subheader("Live SEC companyfacts analysis")
@@ -723,9 +721,9 @@ def render_live_sec_analysis() -> None:
         with st.container(border=True):
             st.markdown("**Research request**")
             sample_label = st.selectbox("Load verified demo preset", list(LIVE_SAMPLE_CASES.keys()))
-            sample_ticker, sample_theme, sample_years = LIVE_SAMPLE_CASES[sample_label]
+            sample_ticker, sample_themes, sample_years = LIVE_SAMPLE_CASES[sample_label]
             with st.form("live_sec_analysis_form"):
-                cols = st.columns([0.8, 1.2, 1])
+                cols = st.columns([0.95, 1.15, 1.05])
                 company_query = cols[0].text_input(
                     "Company or ticker",
                     value=sample_ticker,
@@ -734,12 +732,18 @@ def render_live_sec_analysis() -> None:
                         "JP Morgan, Google, Microsoft, Ford, or Meta."
                     ),
                 ).strip()
-                theme_label = cols[1].selectbox(
-                    "Risk theme",
+                theme_labels = cols[1].multiselect(
+                    "Risk themes",
                     list(RISK_THEMES.keys()),
-                    index=list(RISK_THEMES.keys()).index(sample_theme),
+                    default=sample_themes,
+                    help="Select one or more supported credit risk lenses.",
                 )
-                year_text = cols[2].text_input("Fiscal years", value=sample_years)
+                years = cols[2].multiselect(
+                    "Fiscal years",
+                    FISCAL_YEAR_OPTIONS,
+                    default=sample_years,
+                    help="Select one or more fiscal years. Two or more years enable trend analysis.",
+                )
                 include_llm_workpaper = st.checkbox(
                     "Generate detailed LLM stage workpaper",
                     value=False,
@@ -757,8 +761,9 @@ def render_live_sec_analysis() -> None:
   <div class="title">Execution controls</div>
   <div class="text">
     Enter either a ticker or a company name. The resolver standardizes the input
-    to SEC ticker, CIK, and company name before companyfacts retrieval. Presets
-    are demo shortcuts, not the full supported universe.
+    to SEC ticker, CIK, and company name before companyfacts retrieval. Risk
+    themes and fiscal years are controlled selections; multiple themes can be
+    run as one analysis set.
   </div>
   <br>
   <div class="badge-row">
@@ -776,39 +781,79 @@ def render_live_sec_analysis() -> None:
         render_m5_smoke_summary()
         return
 
-    try:
-        years = parse_years(year_text)
-    except ValueError:
-        st.error("Fiscal years must be comma-separated integers, for example: 2023, 2024.")
-        return
-
     if not company_query:
         st.error("Company or ticker is required.")
+        return
+    if not theme_labels:
+        st.error("Select at least one risk theme.")
         return
     if len(years) < 1:
         st.error("At least one fiscal year is required.")
         return
+    years = sorted(years)
+    if include_llm_workpaper and len(theme_labels) > 1:
+        st.warning(
+            "Detailed LLM stage workpaper is enabled for multiple themes. "
+            "This may take longer and may create multiple Bedrock calls."
+        )
 
     analyzer = get_universal_analyzer()
     spinner_text = f"Resolving company and fetching SEC companyfacts for {company_query}..."
     if include_llm_workpaper:
         spinner_text = f"Resolving company, fetching SEC facts, and generating guarded LLM workpaper for {company_query}..."
     with st.spinner(spinner_text):
-        result = analyzer.analyze(
-            company_query,
-            RISK_THEMES[theme_label],
-            years,
-            include_llm_workpaper=include_llm_workpaper,
+        results = [
+            analyzer.analyze(
+                company_query,
+                RISK_THEMES[theme_label],
+                years,
+                include_llm_workpaper=include_llm_workpaper,
+            )
+            for theme_label in theme_labels
+        ]
+
+    render_live_results(results, theme_labels)
+
+
+def render_live_results(results: List[AnalysisResult], theme_labels: List[str]) -> None:
+    """Render one or more live SEC analysis results."""
+    if len(results) == 1:
+        render_live_result(results[0], theme_labels[0])
+        return
+
+    st.divider()
+    st.subheader("Analysis run set")
+    summary_rows = []
+    for result, theme_label in zip(results, theme_labels):
+        summary_rows.append(
+            {
+                "theme": theme_label,
+                "company": result.company or "n/a",
+                "ticker": result.ticker,
+                "status": result.status,
+                "verified_facts": sum(len(items) for items in result.metrics.values()),
+                "years": ", ".join(str(year) for year in result.years),
+                "error": result.error or "",
+            }
         )
+    st.dataframe(summary_rows, width="stretch", hide_index=True)
 
-    render_live_result(result, theme_label)
+    theme_tabs = st.tabs(theme_labels)
+    for tab, result, theme_label in zip(theme_tabs, results, theme_labels):
+        with tab:
+            render_live_result(result, theme_label, include_divider=False)
 
 
-def render_live_result(result: AnalysisResult, theme_label: str) -> None:
+def render_live_result(
+    result: AnalysisResult,
+    theme_label: str,
+    include_divider: bool = True,
+) -> None:
     total_metrics = sum(len(items) for items in result.metrics.values())
     status_note = "Ready for analyst review" if result.status == "success" else result.error or "Review trace"
 
-    st.divider()
+    if include_divider:
+        st.divider()
     cols = st.columns(4)
     with cols[0]:
         status_card("Company", result.company or "n/a", result.ticker)
