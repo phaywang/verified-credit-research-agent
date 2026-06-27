@@ -672,6 +672,80 @@ class XBRLParser:
         )
         return results
 
+    def discover_companyfact_concepts(
+        self,
+        companyfacts: Dict,
+        search_terms: List[str],
+        fiscal_years: List[int],
+    ) -> List[Dict]:
+        """Discover related annual companyfacts concepts for coverage diagnosis.
+
+        This is intentionally read-only and does not choose facts for analysis.
+        It helps the agent explain whether a missing metric is truly absent,
+        disclosed under a different XBRL concept, or present as a zero value.
+        """
+        normalized_terms = [
+            term.lower()
+            for term in search_terms
+            if term and len(term.strip()) >= 3
+        ]
+        if not normalized_terms:
+            return []
+
+        discovered = []
+        facts = companyfacts.get("facts", {})
+        for namespace, namespace_facts in facts.items():
+            for concept, concept_data in namespace_facts.items():
+                concept_lower = concept.lower()
+                if not any(term in concept_lower for term in normalized_terms):
+                    continue
+
+                facts_by_year = {}
+                for fiscal_year in fiscal_years:
+                    fact = self._extract_companyfact(
+                        {namespace: {concept: concept_data}},
+                        concept,
+                        fiscal_year,
+                    )
+                    if not fact:
+                        continue
+                    value = fact.get("val")
+                    normalized_value = None
+                    try:
+                        normalized_value = float(value)
+                        if abs(normalized_value) > 1_000_000:
+                            normalized_value = normalized_value / 1_000_000
+                    except (TypeError, ValueError):
+                        pass
+                    facts_by_year[str(fiscal_year)] = {
+                        "value": normalized_value,
+                        "raw_value": value,
+                        "unit": fact.get("unit"),
+                        "form": fact.get("form"),
+                        "fp": fact.get("fp"),
+                        "filed": fact.get("filed"),
+                        "end": fact.get("end"),
+                        "is_zero": value == 0,
+                    }
+
+                if facts_by_year:
+                    discovered.append(
+                        {
+                            "namespace": namespace,
+                            "concept": concept,
+                            "facts_by_year": facts_by_year,
+                            "covered_years": sorted(facts_by_year),
+                            "has_zero_value": any(
+                                item.get("is_zero") for item in facts_by_year.values()
+                            ),
+                        }
+                    )
+
+        return sorted(
+            discovered,
+            key=lambda item: (-len(item["covered_years"]), item["concept"]),
+        )
+
     def extract_fiscal_year(self, xbrl_content: str) -> int:
         """Extract fiscal year from XBRL."""
         if self.ET is None:

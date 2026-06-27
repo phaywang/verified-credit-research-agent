@@ -252,6 +252,82 @@ class UniversalAnalyzerTest(unittest.TestCase):
             self.analyzer._last_metric_coverage["unavailable_metrics"],
         )
 
+    def test_metric_coverage_diagnoses_alternate_interest_tag(self):
+        """Coverage diagnosis should explain concept changes instead of guessing zero."""
+        companyfacts = {
+            "facts": {
+                "us-gaap": {
+                    "InterestExpense": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2023,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2024-01-29",
+                                    "end": "2023-12-31",
+                                    "val": 156000000,
+                                }
+                            ]
+                        }
+                    },
+                    "InterestExpenseNonoperating": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2024,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2025-01-30",
+                                    "end": "2024-12-31",
+                                    "val": 350000000,
+                                },
+                                {
+                                    "fy": 2025,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2026-01-29",
+                                    "end": "2025-12-31",
+                                    "val": 338000000,
+                                },
+                            ]
+                        }
+                    },
+                }
+            }
+        }
+
+        self.analyzer.config_loader = MagicMock()
+        self.analyzer.config_loader.get_risk_theme.return_value = {
+            "metrics": ["interest_expense"],
+        }
+        self.analyzer.config_loader.load_metrics.return_value = {
+            "interest_expense": MetricDefinition(
+                name="interest_expense",
+                description="Interest expense",
+                xbrl_selectors=[{"concept": "InterestExpense"}],
+            ),
+        }
+
+        metrics = self.analyzer._extract_metrics(
+            companyfacts,
+            "leverage_analysis",
+            [2023, 2024, 2025],
+        )
+
+        self.assertEqual(len(metrics[2023]), 1)
+        self.assertEqual(metrics[2024], [])
+        coverage = self.analyzer._last_metric_coverage
+        self.assertIn("interest_expense", coverage["partial_metrics"])
+        diagnostic = coverage["diagnostics"][0]
+        self.assertEqual(diagnostic["metric_name"], "interest_expense")
+        self.assertEqual(diagnostic["missing_years"], [2024, 2025])
+        related = {
+            item["concept"] for item in diagnostic["related_companyfact_candidates"]
+        }
+        self.assertIn("InterestExpenseNonoperating", related)
+        self.assertIn("concept change", diagnostic["diagnosis"])
+
     def test_analyze_error_handling(self):
         """Test analyze method error handling."""
         self.analyzer.lookup = MagicMock()

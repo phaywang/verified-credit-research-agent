@@ -466,6 +466,66 @@ class XBRLParserTest(unittest.TestCase):
         self.assertEqual(metrics["total_debt"].value, 11100.0)
         self.assertEqual(metrics["total_debt"].source, "SEC companyfacts")
 
+    def test_discover_companyfact_concepts_for_coverage_diagnosis(self):
+        """Discovery should find related annual facts without selecting them."""
+        companyfacts = {
+            "facts": {
+                "us-gaap": {
+                    "InterestExpense": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2023,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2024-01-29",
+                                    "end": "2023-12-31",
+                                    "val": 156000000,
+                                }
+                            ]
+                        }
+                    },
+                    "InterestExpenseNonoperating": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2024,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2025-01-30",
+                                    "end": "2024-12-31",
+                                    "val": 350000000,
+                                },
+                                {
+                                    "fy": 2025,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2026-01-29",
+                                    "end": "2025-12-31",
+                                    "val": 0,
+                                },
+                            ]
+                        }
+                    },
+                }
+            }
+        }
+
+        discovered = self.parser.discover_companyfact_concepts(
+            companyfacts,
+            ["interest"],
+            [2023, 2024, 2025],
+        )
+
+        by_concept = {item["concept"]: item for item in discovered}
+        self.assertIn("InterestExpense", by_concept)
+        self.assertIn("InterestExpenseNonoperating", by_concept)
+        self.assertEqual(
+            by_concept["InterestExpense"]["facts_by_year"]["2023"]["value"],
+            156.0,
+        )
+        self.assertTrue(by_concept["InterestExpenseNonoperating"]["has_zero_value"])
+
     @requires_sec_network
     def test_parse_real_xbrl_if_available(self):
         """Test parsing real XBRL (integration test, skipped if API unavailable)."""

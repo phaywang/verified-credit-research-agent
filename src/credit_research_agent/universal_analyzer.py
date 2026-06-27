@@ -305,6 +305,7 @@ class UniversalCreditAnalyzer:
             "partial_metrics": [],
             "unavailable_metrics": [],
             "missing_metrics_by_year": {},
+            "diagnostics": [],
         }
 
         for year in years:
@@ -334,6 +335,13 @@ class UniversalCreditAnalyzer:
             for metric_name in metric_names
             if metric_name not in available_by_metric
         ]
+        self._last_metric_coverage["diagnostics"] = self._build_metric_coverage_diagnostics(
+            companyfacts,
+            metric_names,
+            metric_selectors,
+            years,
+            available_by_metric,
+        )
 
         return metrics_by_year
 
@@ -364,6 +372,113 @@ class UniversalCreditAnalyzer:
                 selectors[metric_name] = concepts
 
         return selectors
+
+    def _build_metric_coverage_diagnostics(
+        self,
+        companyfacts: Dict[str, Any],
+        metric_names: List[str],
+        metric_selectors: Dict[str, List[str]],
+        years: List[int],
+        available_by_metric: Dict[str, List[int]],
+    ) -> List[Dict[str, Any]]:
+        """Explain missing or partial metric coverage with XBRL concept discovery."""
+        diagnostics = []
+        for metric_name in metric_names:
+            covered_years = sorted(set(available_by_metric.get(metric_name, [])))
+            if len(covered_years) == len(years):
+                continue
+
+            configured_concepts = metric_selectors.get(metric_name, [])
+            search_terms = self._diagnostic_terms(metric_name, configured_concepts)
+            candidates = self.parser.discover_companyfact_concepts(
+                companyfacts,
+                search_terms,
+                years,
+            )
+            configured_set = {concept.split(":")[-1] for concept in configured_concepts}
+            configured_candidates = [
+                candidate for candidate in candidates
+                if candidate.get("concept") in configured_set
+            ]
+            related_candidates = [
+                candidate for candidate in candidates
+                if candidate.get("concept") not in configured_set
+            ][:8]
+            diagnostics.append(
+                {
+                    "metric_name": metric_name,
+                    "status": "unavailable" if not covered_years else "partial",
+                    "covered_years": covered_years,
+                    "missing_years": [
+                        year for year in years if year not in covered_years
+                    ],
+                    "configured_concepts": configured_concepts,
+                    "configured_concept_facts": configured_candidates,
+                    "related_companyfact_candidates": related_candidates,
+                    "zero_value_candidates": [
+                        candidate for candidate in candidates
+                        if candidate.get("has_zero_value")
+                    ][:8],
+                    "diagnosis": self._coverage_diagnosis_text(
+                        metric_name,
+                        covered_years,
+                        related_candidates,
+                    ),
+                }
+            )
+        return diagnostics
+
+    @staticmethod
+    def _diagnostic_terms(metric_name: str, configured_concepts: List[str]) -> List[str]:
+        """Build broad but bounded companyfacts discovery terms for a metric."""
+        terms = {
+            token
+            for token in metric_name.replace("_", " ").split()
+            if len(token) >= 4
+        }
+        for concept in configured_concepts:
+            local = concept.split(":")[-1]
+            if "Interest" in local:
+                terms.add("interest")
+            if "Debt" in local:
+                terms.add("debt")
+            if "Cash" in local:
+                terms.add("cash")
+            if "Lease" in local:
+                terms.add("lease")
+        return sorted(terms)
+
+    @staticmethod
+    def _coverage_diagnosis_text(
+        metric_name: str,
+        covered_years: List[int],
+        related_candidates: List[Dict[str, Any]],
+    ) -> str:
+        """Write a concise user-facing explanation for metric coverage gaps."""
+        if related_candidates:
+            concepts = ", ".join(
+                candidate.get("concept", "") for candidate in related_candidates[:3]
+            )
+            if covered_years:
+                return (
+                    f"{metric_name} is partially covered by configured concepts; "
+                    f"related SEC companyfacts concepts exist ({concepts}), so the "
+                    "gap may reflect a concept change or alternate disclosure tag."
+                )
+            return (
+                f"{metric_name} was not covered by configured concepts, but related "
+                f"SEC companyfacts concepts exist ({concepts}); review before using "
+                "them in verified conclusions."
+            )
+        if covered_years:
+            return (
+                f"{metric_name} is partially covered and no obvious alternate "
+                "companyfacts concept was discovered for the missing years."
+            )
+        return (
+            f"{metric_name} has no verified companyfacts value and no obvious "
+            "alternate concept in the current discovery scan."
+        )
 
     def _with_calculated_metrics(
         self,

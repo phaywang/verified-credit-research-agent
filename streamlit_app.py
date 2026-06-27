@@ -1078,6 +1078,14 @@ def render_live_result(
         ]
         with st.expander("Metric coverage by fiscal year"):
             st.dataframe(missing_rows, width="stretch", hide_index=True)
+            diagnostics = coverage.get("diagnostics", [])
+            if diagnostics:
+                st.markdown("**Coverage diagnosis**")
+                st.dataframe(
+                    coverage_diagnostic_rows(diagnostics),
+                    width="stretch",
+                    hide_index=True,
+                )
 
     changes = change_rows(result)
     if changes:
@@ -1117,6 +1125,31 @@ def metric_coverage(result: AnalysisResult) -> Dict[str, Any]:
             if isinstance(coverage, dict):
                 return coverage
     return {}
+
+
+def coverage_diagnostic_rows(diagnostics: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Flatten metric coverage diagnostics for analyst review."""
+    rows = []
+    for item in diagnostics:
+        related = item.get("related_companyfact_candidates", [])
+        zero_candidates = item.get("zero_value_candidates", [])
+        rows.append(
+            {
+                "metric": item.get("metric_name"),
+                "status": item.get("status"),
+                "covered_years": ", ".join(str(year) for year in item.get("covered_years", [])),
+                "missing_years": ", ".join(str(year) for year in item.get("missing_years", [])),
+                "configured_concepts": ", ".join(item.get("configured_concepts", [])),
+                "related_concepts": ", ".join(
+                    candidate.get("concept", "") for candidate in related[:4]
+                ),
+                "zero_value_candidates": ", ".join(
+                    candidate.get("concept", "") for candidate in zero_candidates[:4]
+                ),
+                "diagnosis": item.get("diagnosis", ""),
+            }
+        )
+    return rows
 
 
 def render_stage_workpaper(stage_workpaper: List[Dict[str, Any]]) -> None:

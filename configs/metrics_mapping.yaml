@@ -82,6 +82,7 @@ metrics:
     description: "Interest expense on debt"
     xbrl_selectors:
       - concept: "InterestExpense"
+      - concept: "InterestExpenseNonoperating"
       - concept: "InterestAndDebtExpense"
     text_patterns:
       - "interest.*expense"
