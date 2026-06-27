@@ -359,6 +359,48 @@ def inject_css() -> None:
     font-size: 0.84rem;
     line-height: 1.45;
   }
+  .selector-title {
+    color: var(--ink);
+    font-size: 0.85rem;
+    font-weight: 760;
+    margin-bottom: 2px;
+  }
+  .selector-help {
+    color: var(--muted);
+    font-size: 0.76rem;
+    margin-bottom: 8px;
+  }
+  div[data-testid="stCheckbox"] {
+    margin-bottom: 5px;
+  }
+  div[data-testid="stCheckbox"] label {
+    width: 100%;
+    min-height: 34px;
+    border: 1px solid #d9dee7;
+    background: #ffffff;
+    border-radius: 7px;
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  }
+  div[data-testid="stCheckbox"] label:hover {
+    border-color: #a8b3c5;
+    background: #fbfcfe;
+  }
+  div[data-testid="stCheckbox"] label:has(input:checked) {
+    border-color: #9f1d35;
+    background: #fff3f5;
+    box-shadow: inset 3px 0 0 #9f1d35;
+  }
+  div[data-testid="stCheckbox"] label p {
+    color: #344054;
+    font-size: 0.82rem;
+    font-weight: 650;
+  }
+  div[data-testid="stCheckbox"] label:has(input:checked) p {
+    color: #7f1d2d;
+  }
   .workflow-step {
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -703,6 +745,43 @@ def get_universal_analyzer() -> UniversalCreditAnalyzer:
     return UniversalCreditAnalyzer()
 
 
+def selector_key(prefix: str, label: Any) -> str:
+    safe = "".join(ch.lower() if ch.isalnum() else "_" for ch in str(label))
+    return f"{prefix}_{safe}"
+
+
+def checkbox_chip_selector(
+    *,
+    title: str,
+    help_text: str,
+    options: List[Any],
+    defaults: List[Any],
+    key_prefix: str,
+    columns: int,
+) -> List[Any]:
+    """Render a compact checkbox-chip selector and return selected values."""
+    with st.container(border=True):
+        st.markdown(
+            f"""
+<div class="selector-title">{title}</div>
+<div class="selector-help">{help_text}</div>
+""",
+            unsafe_allow_html=True,
+        )
+        selected = []
+        grid = st.columns(columns)
+        for index, option in enumerate(options):
+            with grid[index % columns]:
+                checked = st.checkbox(
+                    str(option),
+                    value=option in defaults,
+                    key=selector_key(key_prefix, option),
+                )
+                if checked:
+                    selected.append(option)
+    return selected
+
+
 def render_live_sec_analysis() -> None:
     st.markdown('<div class="section-kicker">Research console</div>', unsafe_allow_html=True)
     st.subheader("Live SEC companyfacts analysis")
@@ -723,9 +802,9 @@ def render_live_sec_analysis() -> None:
             st.markdown("**Research request**")
             sample_label = st.selectbox("Load verified demo preset", list(LIVE_SAMPLE_CASES.keys()))
             sample_ticker, sample_themes, sample_years = LIVE_SAMPLE_CASES[sample_label]
+            preset_key = selector_key("preset", sample_label)
             with st.form("live_sec_analysis_form"):
-                cols = st.columns([0.95, 1.15, 1.05])
-                company_query = cols[0].text_input(
+                company_query = st.text_input(
                     "Company or ticker",
                     value=sample_ticker,
                     help=(
@@ -733,18 +812,25 @@ def render_live_sec_analysis() -> None:
                         "JP Morgan, Google, Microsoft, Ford, or Meta."
                     ),
                 ).strip()
-                theme_labels = cols[1].multiselect(
-                    "Risk themes",
-                    list(RISK_THEMES.keys()),
-                    default=sample_themes,
-                    help="Select one or more supported credit risk lenses.",
-                )
-                years = cols[2].multiselect(
-                    "Fiscal years",
-                    FISCAL_YEAR_OPTIONS,
-                    default=sample_years,
-                    help="Select one or more fiscal years. Two or more years enable trend analysis.",
-                )
+                selector_cols = st.columns([1.15, 0.85], gap="medium")
+                with selector_cols[0]:
+                    theme_labels = checkbox_chip_selector(
+                        title="Risk themes",
+                        help_text="Select one or more credit risk lenses.",
+                        options=list(RISK_THEMES.keys()),
+                        defaults=sample_themes,
+                        key_prefix=f"{preset_key}_theme",
+                        columns=2,
+                    )
+                with selector_cols[1]:
+                    years = checkbox_chip_selector(
+                        title="Fiscal years",
+                        help_text="Two or more years enable trend analysis.",
+                        options=FISCAL_YEAR_OPTIONS,
+                        defaults=sample_years,
+                        key_prefix=f"{preset_key}_year",
+                        columns=2,
+                    )
                 include_llm_workpaper = st.checkbox(
                     "Generate detailed LLM stage workpaper",
                     value=False,
