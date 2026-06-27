@@ -50,20 +50,20 @@ def inject_css() -> None:
         """
 <style>
   :root {
-    --ink: #172033;
+    --ink: #111827;
     --muted: #667085;
-    --line: #e5e7eb;
+    --line: #d9dee7;
     --soft: #f7f8fa;
     --soft-2: #eef2f6;
     --panel: #ffffff;
-    --accent: #9f1d35;
+    --accent: #8f1d2f;
     --accent-soft: #fff3f5;
     --good: #0f766e;
     --warn: #a15c07;
     --bad: #b42318;
   }
   .stApp {
-    background: #f5f6f8;
+    background: #f3f5f8;
   }
   .block-container {
     padding-top: 1.45rem;
@@ -86,7 +86,7 @@ def inject_css() -> None:
     position: fixed;
   }
   section[data-testid="stSidebar"] {
-    background: #111827;
+    background: #0f172a;
     border-right: 1px solid #1f2937;
   }
   section[data-testid="stSidebar"] * {
@@ -101,11 +101,11 @@ def inject_css() -> None:
     border-color: #374151;
   }
   section[data-testid="stSidebar"] [role="radiogroup"] label {
-    background: #182235;
-    border: 1px solid #2d3748;
+    background: #172033;
+    border: 1px solid #293548;
     border-radius: 7px;
-    padding: 7px 9px;
-    margin-bottom: 6px;
+    padding: 8px 9px;
+    margin-bottom: 7px;
   }
   section[data-testid="stSidebar"] [role="radiogroup"] label:hover {
     background: #22304a;
@@ -130,14 +130,34 @@ def inject_css() -> None:
   }
   .topbar {
     border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
     border-radius: 8px;
     background: #ffffff;
     padding: 14px 16px;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
     gap: 16px;
     align-items: flex-start;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+  .topbar-title {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+  }
+  .brandmark {
+    width: 34px;
+    height: 34px;
+    border-radius: 7px;
+    background: #111827;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
   }
   .product-label {
     color: #475467;
@@ -187,6 +207,46 @@ def inject_css() -> None:
     color: #dbeafe;
     border-color: #334155;
     background: #1f2937;
+  }
+  .command-strip {
+    border: 1px solid var(--line);
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 9px 12px;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+  .command-strip .left,
+  .command-strip .right {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .command-label {
+    color: #475467;
+    font-size: 0.75rem;
+    font-weight: 750;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .control-chip {
+    border: 1px solid #d9dee7;
+    background: #f8fafc;
+    color: #344054;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    font-weight: 650;
+  }
+  .control-chip.ok {
+    color: var(--good);
+    background: #ecfdf9;
+    border-color: #9bd6cc;
   }
   .status-card {
     border: 1px solid var(--line);
@@ -250,8 +310,13 @@ def inject_css() -> None:
     border: 1px solid var(--line);
     background: #ffffff;
     border-radius: 8px;
-    padding: 11px 13px;
+    padding: 12px 14px;
     margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
   }
   .module-header strong {
     color: var(--ink);
@@ -261,6 +326,35 @@ def inject_css() -> None:
   .module-header span {
     color: var(--muted);
     font-size: 0.84rem;
+  }
+  .module-code {
+    color: #475467;
+    background: #f8fafc;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+  .control-panel {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 14px;
+    min-height: 132px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+  .control-panel .title {
+    color: var(--ink);
+    font-size: 0.94rem;
+    font-weight: 760;
+    margin-bottom: 7px;
+  }
+  .control-panel .text {
+    color: var(--muted);
+    font-size: 0.84rem;
+    line-height: 1.45;
   }
   .workflow-step {
     border: 1px solid var(--line);
@@ -399,10 +493,13 @@ def render_topbar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> N
     st.markdown(
         f"""
 <div class="topbar">
-  <div>
-    <div class="product-label">Verified Credit Research Agent</div>
-    <h1>Credit Research Workbench</h1>
-    <p>SEC filing research, deterministic financial verification, and auditable workpaper controls.</p>
+  <div class="topbar-title">
+    <div class="brandmark">CR</div>
+    <div>
+      <div class="product-label">Verified Credit Research Agent</div>
+      <h1>Credit Research Workbench</h1>
+      <p>SEC filing research, deterministic financial verification, and auditable workpaper controls.</p>
+    </div>
   </div>
   <div class="badge-row">
     <span class="badge good">Guardrail: {final_metrics.get("final_answer_numeric_guardrail", "n/a")}</span>
@@ -414,14 +511,53 @@ def render_topbar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> N
 """,
         unsafe_allow_html=True,
     )
+    st.markdown(
+        f"""
+<div class="command-strip">
+  <div class="left">
+    <span class="command-label">Environment</span>
+    <span class="control-chip">Demo workspace</span>
+    <span class="control-chip">Read-only artifacts</span>
+    <span class="control-chip">SEC companyfacts enabled</span>
+  </div>
+  <div class="right">
+    <span class="command-label">Controls</span>
+    <span class="control-chip ok">Numeric guardrail {final_metrics.get("final_answer_numeric_guardrail", "n/a")}</span>
+    <span class="control-chip ok">Semantic critic {final_metrics.get("phase5_semantic_approved", "n/a")}</span>
+    <span class="control-chip">{guardrail.get("blocked_count", "n/a")} blocked claims</span>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
 
-PAGE_DESCRIPTIONS = {
-    "Control Room": "Operating dashboard, system controls, and current validation status.",
-    "Research Console": "Live SEC companyfacts workflow for ticker-level deterministic analysis.",
-    "Workpaper Audit": "Frozen M3 final brief, trace metrics, and ReAct tool ledger.",
-    "Model Controls": "Numeric guardrail and semantic critic review outputs.",
-    "System Architecture": "End-to-end system flow and LLM/tool responsibility boundary.",
+PAGE_META = {
+    "Control Room": {
+        "code": "01",
+        "nav": "01  Control Room",
+        "description": "Operating dashboard, system controls, and current validation status.",
+    },
+    "Research Console": {
+        "code": "02",
+        "nav": "02  Research Console",
+        "description": "Live SEC companyfacts workflow for ticker-level deterministic analysis.",
+    },
+    "Workpaper Audit": {
+        "code": "03",
+        "nav": "03  Workpaper Audit",
+        "description": "Frozen M3 final brief, trace metrics, and ReAct tool ledger.",
+    },
+    "Model Controls": {
+        "code": "04",
+        "nav": "04  Model Controls",
+        "description": "Numeric guardrail and semantic critic review outputs.",
+    },
+    "System Architecture": {
+        "code": "05",
+        "nav": "05  System Architecture",
+        "description": "End-to-end system flow and LLM/tool responsibility boundary.",
+    },
 }
 
 
@@ -438,8 +574,9 @@ def render_sidebar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> 
         st.markdown("**Modules**")
         selected_page = st.radio(
             "Primary navigation",
-            list(PAGE_DESCRIPTIONS.keys()),
+            list(PAGE_META.keys()),
             index=0,
+            format_func=lambda page: PAGE_META[page]["nav"],
             label_visibility="collapsed",
         )
         st.markdown("---")
@@ -458,11 +595,15 @@ def render_sidebar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> 
 
 
 def render_module_header(page: str) -> None:
+    meta = PAGE_META[page]
     st.markdown(
         f"""
 <div class="module-header">
-  <strong>{page}</strong>
-  <span>{PAGE_DESCRIPTIONS[page]}</span>
+  <div>
+    <strong>{page}</strong>
+    <span>{meta["description"]}</span>
+  </div>
+  <div class="module-code">MODULE {meta["code"]}</div>
 </div>
 """,
         unsafe_allow_html=True,
@@ -597,13 +738,14 @@ def render_live_sec_analysis() -> None:
     with guide_col:
         st.markdown(
             """
-<div class="panel">
-  <h3>Execution controls</h3>
-  <p class="small-muted">
+<div class="control-panel">
+  <div class="title">Execution controls</div>
+  <div class="text">
     Live mode is deterministic and separate from the Bedrock ReAct workpaper.
     It uses SEC companyfacts and configured concept mappings, then exposes the
     generated brief, verified facts, and trace for analyst review.
-  </p>
+  </div>
+  <br>
   <div class="badge-row">
     <span class="badge">read-only</span>
     <span class="badge">SEC companyfacts</span>
@@ -717,6 +859,38 @@ def render_overview(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) ->
         status_card("Final guardrail", final_metrics.get("final_answer_numeric_guardrail", "n/a"), "unsupported numbers blocked")
     with cols[3]:
         status_card("Smoke validation", "Pass", "AAPL, TSLA, NVDA")
+
+    panel_cols = st.columns(3, gap="large")
+    with panel_cols[0]:
+        st.markdown(
+            """
+<div class="control-panel">
+  <div class="title">Research intake</div>
+  <div class="text">Analyst submits a ticker, risk theme, and fiscal years. The workbench routes the request to structured SEC facts or the frozen M3 workpaper package.</div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+    with panel_cols[1]:
+        st.markdown(
+            """
+<div class="control-panel">
+  <div class="title">Verification layer</div>
+  <div class="text">Financial numbers are extracted, mapped, calculated, and checked by deterministic Python paths before they can appear as conclusions.</div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+    with panel_cols[2]:
+        st.markdown(
+            """
+<div class="control-panel">
+  <div class="title">Audit package</div>
+  <div class="text">The system exposes workpaper artifacts, tool calls, guardrail outputs, semantic critic results, and trace metrics for review.</div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
 
     st.markdown("### Operating model")
     st.markdown(
