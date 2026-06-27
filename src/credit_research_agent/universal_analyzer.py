@@ -26,7 +26,9 @@ from credit_research_agent.brief_generator import (
     VerifiedMetricsSet,
 )
 from credit_research_agent.llm_stage_workpaper import generate_stage_workpaper
+from credit_research_agent.metric_resolver import MetricResolver
 from credit_research_agent.task_generator import TaskGenerator
+from credit_research_agent.xbrl_inventory import XBRLFactInventoryBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,8 @@ class UniversalCreditAnalyzer:
         self.lookup = SECCompanyLookup()
         self.fetcher = SEC10KFetcher()
         self.parser = XBRLParser()
+        self.inventory_builder = XBRLFactInventoryBuilder(self.parser)
+        self.metric_resolver = MetricResolver()
         self.config_loader = ConfigLoader()
         self.task_generator = TaskGenerator()
         self.brief_generator = BriefGenerator()
@@ -305,13 +309,41 @@ class UniversalCreditAnalyzer:
             "partial_metrics": [],
             "unavailable_metrics": [],
             "missing_metrics_by_year": {},
+            "inventory_summary_by_year": {},
+            "metric_resolutions_by_year": {},
             "diagnostics": [],
         }
 
         for year in years:
             logger.info(f"Extracting metrics for {year}...")
-            extracted = self.parser.extract_metrics_from_companyfacts(
-                companyfacts, metric_selectors, year
+            inventory = self.inventory_builder.build(companyfacts, year)
+            self._last_metric_coverage["inventory_summary_by_year"][str(year)] = (
+                inventory.summary()
+            )
+
+            extracted: Dict[str, MetricValue] = {}
+            resolutions = []
+            for metric_name in metric_names:
+                resolution = self.metric_resolver.resolve(
+                    metric_name,
+                    inventory,
+                    metric_selectors.get(metric_name, []),
+                )
+                resolutions.append(resolution.to_dict())
+                if resolution.status != "resolved" or resolution.selected_fact is None:
+                    continue
+                fact = resolution.selected_fact
+                extracted[metric_name] = MetricValue(
+                    metric_name=metric_name,
+                    value=fact.value,
+                    unit=fact.unit,
+                    fiscal_year=year,
+                    xbrl_concept=fact.concept,
+                    source=fact.source,
+                )
+
+            self._last_metric_coverage["metric_resolutions_by_year"][str(year)] = (
+                resolutions
             )
             metrics_by_year[year] = self._with_calculated_metrics(
                 year,

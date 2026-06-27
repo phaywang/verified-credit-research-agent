@@ -316,17 +316,20 @@ class UniversalAnalyzerTest(unittest.TestCase):
         )
 
         self.assertEqual(len(metrics[2023]), 1)
-        self.assertEqual(metrics[2024], [])
+        self.assertEqual(len(metrics[2024]), 1)
+        self.assertEqual(len(metrics[2025]), 1)
         coverage = self.analyzer._last_metric_coverage
-        self.assertIn("interest_expense", coverage["partial_metrics"])
-        diagnostic = coverage["diagnostics"][0]
-        self.assertEqual(diagnostic["metric_name"], "interest_expense")
-        self.assertEqual(diagnostic["missing_years"], [2024, 2025])
-        related = {
-            item["concept"] for item in diagnostic["related_companyfact_candidates"]
-        }
-        self.assertIn("InterestExpenseNonoperating", related)
-        self.assertIn("concept change", diagnostic["diagnosis"])
+        self.assertNotIn("interest_expense", coverage["partial_metrics"])
+        resolutions_2024 = coverage["metric_resolutions_by_year"]["2024"]
+        self.assertEqual(resolutions_2024[0]["status"], "resolved")
+        self.assertEqual(
+            resolutions_2024[0]["accepted_concept"],
+            "InterestExpenseNonoperating",
+        )
+        self.assertEqual(
+            resolutions_2024[0]["decision_basis"],
+            "safe_interest_expense_alternate",
+        )
 
     def test_analyze_error_handling(self):
         """Test analyze method error handling."""
@@ -364,20 +367,24 @@ class UniversalAnalyzerTest(unittest.TestCase):
 
         self.analyzer.fetcher.fetch_companyfacts.return_value = {
             "entityName": "Tesla Inc.",
-            "facts": {},
-        }
-
-        # Mock parser
-        self.analyzer.parser = MagicMock()
-        self.analyzer.parser.extract_metrics_from_companyfacts.return_value = {
-            "total_debt": MetricValue(
-                metric_name="total_debt",
-                value=100.0,
-                unit="USD millions",
-                fiscal_year=2023,
-                xbrl_concept="us-gaap:Debt",
-                source="XBRL",
-            ),
+            "facts": {
+                "us-gaap": {
+                    "Debt": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2023,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2024-01-29",
+                                    "end": "2023-12-31",
+                                    "val": 100000000,
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
         }
 
         # Mock brief generator

@@ -1087,6 +1087,11 @@ def render_live_result(
                     hide_index=True,
                 )
 
+    resolution_rows = metric_resolution_rows(coverage)
+    if resolution_rows:
+        with st.expander("XBRL resolver decisions"):
+            st.dataframe(resolution_rows, width="stretch", hide_index=True)
+
     changes = change_rows(result)
     if changes:
         st.subheader("Verified change register")
@@ -1120,11 +1125,32 @@ def render_live_result(
 def metric_coverage(result: AnalysisResult) -> Dict[str, Any]:
     """Return structured metric coverage details from the analysis trace."""
     for item in result.trace:
-        if item.get("step") == "extract_companyfacts":
-            coverage = item.get("metric_coverage")
-            if isinstance(coverage, dict):
-                return coverage
+        coverage = item.get("metric_coverage")
+        if item.get("step") == "extract_companyfacts" and isinstance(coverage, dict):
+            return coverage
     return {}
+
+
+def metric_resolution_rows(coverage: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Flatten XBRL metric resolver decisions for analyst review."""
+    rows = []
+    by_year = coverage.get("metric_resolutions_by_year", {})
+    for fiscal_year, resolutions in sorted(by_year.items()):
+        for resolution in resolutions:
+            selected_fact = resolution.get("selected_fact") or {}
+            rows.append(
+                {
+                    "fiscal_year": fiscal_year,
+                    "metric": resolution.get("metric_name"),
+                    "status": resolution.get("status"),
+                    "accepted_concept": resolution.get("accepted_concept") or "",
+                    "value": selected_fact.get("value"),
+                    "unit": selected_fact.get("unit", ""),
+                    "basis": resolution.get("decision_basis", ""),
+                    "requires_review": resolution.get("requires_review", False),
+                }
+            )
+    return rows
 
 
 def coverage_diagnostic_rows(diagnostics: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
