@@ -49,7 +49,7 @@ An optional **Generate detailed LLM stage workpaper** checkbox runs a Bedrock-ba
 
 The LLM workpaper is guarded: financial-number lines are checked against verified SEC/XBRL facts, and unsupported numeric lines are removed before display.
 
-LLM stage workpaper mode is intentionally limited to one selected risk theme per run. For multi-theme review, run the deterministic analysis set first, then rerun the most important theme with the detailed LLM workpaper option enabled.
+For a single selected risk theme, LLM stage workpaper mode generates the four-stage analyst workpaper. For multiple selected themes, the app first runs deterministic analysis by theme, then makes one consolidated LLM synthesis across the verified theme results. This avoids one Bedrock call per theme/stage while still supporting multi-theme review.
 
 ## Live SEC Smoke Check
 

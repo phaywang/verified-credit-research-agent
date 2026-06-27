@@ -122,6 +122,73 @@ def generate_stage_workpaper(
     return workpapers
 
 
+def generate_consolidated_stage_workpaper(
+    *,
+    company: str,
+    ticker: str,
+    risk_themes: List[str],
+    years: List[int],
+    analyses: List[Dict[str, Any]],
+    invoke_fn: Optional[InvokeFn] = None,
+) -> List[StageWorkpaper]:
+    """Generate a single guarded stage workpaper across multiple risk themes."""
+
+    facts = []
+    briefs = []
+    for analysis in analyses:
+        theme = analysis.get("risk_theme", "")
+        facts.extend(
+            {**fact, "risk_theme": theme}
+            for fact in _compact_metric_facts(analysis.get("metrics_by_year", {}))
+        )
+        briefs.append({
+            "risk_theme": theme,
+            "brief_excerpt": str(analysis.get("deterministic_brief", ""))[:2500],
+        })
+
+    allowed_numbers = _allowed_numbers(years, facts)
+    call_llm = invoke_fn or _invoke_bedrock_text
+    prompt = _build_consolidated_prompt(
+        company=company,
+        ticker=ticker,
+        risk_themes=risk_themes,
+        years=years,
+        facts=facts,
+        briefs=briefs,
+    )
+
+    try:
+        raw_analysis = call_llm(prompt, SYSTEM_PROMPT, 2800)
+        guarded = _guard_stage_text(raw_analysis, allowed_numbers)
+        return [
+            StageWorkpaper(
+                stage="Consolidated Multi-Theme Workpaper",
+                status="success" if guarded["status"] == "pass" else "repaired",
+                analysis=guarded["text"],
+                guardrail_status=guarded["status"],
+                blocked_lines=guarded["blocked_lines"],
+                prompt_summary=(
+                    "One LLM synthesis across all selected deterministic theme results; "
+                    "financial numbers guarded against verified SEC/XBRL facts."
+                ),
+            )
+        ]
+    except Exception as exc:
+        return [
+            StageWorkpaper(
+                stage="Consolidated Multi-Theme Workpaper",
+                status="unavailable",
+                analysis=(
+                    "Consolidated LLM workpaper was not generated. Deterministic "
+                    "theme briefs, verified facts, and traces remain available."
+                ),
+                guardrail_status="not_run",
+                blocked_lines=[],
+                prompt_summary=f"Consolidated multi-theme synthesis failed: {exc}",
+            )
+        ]
+
+
 def _invoke_bedrock_text(prompt: str, system_prompt: str, max_tokens: int) -> str:
     return invoke_text(
         prompt,
@@ -182,6 +249,47 @@ Output requirements:
 - Separate observations, credit implications, limitations, and follow-up work where relevant.
 - Do not invent facts, ratings, recommendations, forecasts, covenants, or unsupported numbers.
 - If you reference a financial number, copy it only from the verified facts above.
+- No private chain-of-thought.
+"""
+
+
+def _build_consolidated_prompt(
+    *,
+    company: str,
+    ticker: str,
+    risk_themes: List[str],
+    years: List[int],
+    facts: List[Dict[str, Any]],
+    briefs: List[Dict[str, str]],
+) -> str:
+    return f"""
+Write a consolidated multi-theme workpaper for a financial-institution credit research workflow.
+
+Company: {company}
+Ticker: {ticker}
+Risk themes: {', '.join(risk_themes)}
+Fiscal years: {', '.join(str(year) for year in years)}
+
+Verified SEC/XBRL facts by theme:
+{json.dumps(facts, indent=2, sort_keys=True)}
+
+Deterministic verified brief excerpts by theme:
+{json.dumps(briefs, indent=2, sort_keys=True)}
+
+Required sections:
+1. Research scope and entity resolution
+2. Cross-theme verified fact review
+3. Credit risk read-through by theme
+4. Combined risk priorities
+5. Limitations and unresolved diligence items
+6. Senior reviewer questions
+
+Output requirements:
+- Use markdown.
+- Be detailed enough for senior analyst review.
+- Do not invent facts, ratings, recommendations, forecasts, covenants, or unsupported numbers.
+- If you reference a financial number, copy it only from the verified facts above.
+- Discuss qualitative priorities without adding new numeric claims.
 - No private chain-of-thought.
 """
 

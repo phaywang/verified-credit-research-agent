@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import streamlit as st
 
+from credit_research_agent.llm_stage_workpaper import generate_consolidated_stage_workpaper
 from credit_research_agent.universal_analyzer import AnalysisResult, UniversalCreditAnalyzer
 
 
@@ -750,7 +751,7 @@ def render_live_sec_analysis() -> None:
                     help=(
                         "Optional Bedrock mode. The LLM writes stage-level analyst notes "
                         "after deterministic SEC/XBRL facts are extracted; numeric lines are guarded. "
-                        "Use this with one selected risk theme."
+                        "Multi-theme runs use one consolidated LLM synthesis."
                     ),
                 )
                 submitted = st.form_submit_button("Run Analysis", type="primary", width="stretch")
@@ -792,36 +793,70 @@ def render_live_sec_analysis() -> None:
         st.error("At least one fiscal year is required.")
         return
     years = sorted(years)
-    if include_llm_workpaper and len(theme_labels) > 1:
-        st.error(
-            "Detailed LLM stage workpaper is limited to one risk theme per run. "
-            "Select a single theme, or uncheck the LLM workpaper option to run multiple themes deterministically."
-        )
-        st.info(
-            "Recommended workflow: run multiple themes first without LLM workpaper, "
-            "then rerun the most important theme with detailed LLM stage workpaper enabled."
-        )
-        return
+    use_consolidated_workpaper = include_llm_workpaper and len(theme_labels) > 1
+    per_theme_llm_workpaper = include_llm_workpaper and len(theme_labels) == 1
 
     analyzer = get_universal_analyzer()
     spinner_text = f"Resolving company and fetching SEC companyfacts for {company_query}..."
-    if include_llm_workpaper:
+    if per_theme_llm_workpaper:
         spinner_text = f"Resolving company, fetching SEC facts, and generating guarded LLM workpaper for {company_query}..."
+    if use_consolidated_workpaper:
+        spinner_text = f"Running deterministic themes and one consolidated guarded LLM workpaper for {company_query}..."
     with st.spinner(spinner_text):
         results = [
             analyzer.analyze(
                 company_query,
                 RISK_THEMES[theme_label],
                 years,
-                include_llm_workpaper=include_llm_workpaper,
+                include_llm_workpaper=per_theme_llm_workpaper,
             )
             for theme_label in theme_labels
         ]
+        consolidated_workpaper = (
+            generate_consolidated_workpaper(results, theme_labels)
+            if use_consolidated_workpaper
+            else []
+        )
 
-    render_live_results(results, theme_labels)
+    render_live_results(results, theme_labels, consolidated_workpaper)
 
 
-def render_live_results(results: List[AnalysisResult], theme_labels: List[str]) -> None:
+def generate_consolidated_workpaper(
+    results: List[AnalysisResult],
+    theme_labels: List[str],
+) -> List[Dict[str, Any]]:
+    """Create one guarded LLM workpaper across successful theme results."""
+    successful = [
+        (result, theme_label)
+        for result, theme_label in zip(results, theme_labels)
+        if result.status == "success"
+    ]
+    if not successful:
+        return []
+
+    first_result = successful[0][0]
+    stage_workpaper = generate_consolidated_stage_workpaper(
+        company=first_result.company,
+        ticker=first_result.ticker,
+        risk_themes=[RISK_THEMES[theme_label] for _, theme_label in successful],
+        years=first_result.years,
+        analyses=[
+            {
+                "risk_theme": RISK_THEMES[theme_label],
+                "metrics_by_year": result.metrics,
+                "deterministic_brief": result.brief,
+            }
+            for result, theme_label in successful
+        ],
+    )
+    return [stage.to_dict() for stage in stage_workpaper]
+
+
+def render_live_results(
+    results: List[AnalysisResult],
+    theme_labels: List[str],
+    consolidated_workpaper: Optional[List[Dict[str, Any]]] = None,
+) -> None:
     """Render one or more live SEC analysis results."""
     if len(results) == 1:
         render_live_result(results[0], theme_labels[0])
@@ -843,6 +878,10 @@ def render_live_results(results: List[AnalysisResult], theme_labels: List[str]) 
             }
         )
     st.dataframe(summary_rows, width="stretch", hide_index=True)
+
+    if consolidated_workpaper:
+        st.subheader("Consolidated LLM workpaper")
+        render_stage_workpaper(consolidated_workpaper)
 
     theme_tabs = st.tabs(theme_labels)
     for tab, result, theme_label in zip(theme_tabs, results, theme_labels):
