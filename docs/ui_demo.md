@@ -39,6 +39,16 @@ ticker lookup
 
 This mode does not call Bedrock. It requires live access to `www.sec.gov` and `data.sec.gov`.
 
+## Live SEC Smoke Check
+
+Before a live demo, you can validate the SEC path without opening the UI:
+
+```bash
+python3 scripts/run_m5_live_smoke.py --json-output examples/m5_live_smoke.json
+```
+
+The default smoke checks AAPL, TSLA, and NVDA leverage analysis and verifies that each run succeeds, extracts enough metrics, and includes a `Verified Changes` section in the generated brief.
+
 ## What It Shows
 
 - Project overview and milestone evolution.

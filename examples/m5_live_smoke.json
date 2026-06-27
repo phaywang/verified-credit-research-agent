@@ -1,0 +1,108 @@
+{
+  "case_count": 3,
+  "failures": [],
+  "status": "pass",
+  "summaries": [
+    {
+      "company": "Apple Inc.",
+      "concepts": [
+        "InterestExpense",
+        "LongTermDebt",
+        "LongTermDebtNoncurrent",
+        "NetIncomeLoss",
+        "StockholdersEquity"
+      ],
+      "error": null,
+      "has_verified_changes": true,
+      "metric_counts": {
+        "2023": 5,
+        "2024": 4
+      },
+      "status": "success",
+      "theme": "leverage_analysis",
+      "ticker": "AAPL",
+      "total_metrics": 9,
+      "trace_steps": [
+        "lookup_company",
+        "lookup_company",
+        "fetch_companyfacts",
+        "fetch_companyfacts",
+        "extract_companyfacts",
+        "extract_companyfacts",
+        "generate_brief",
+        "generate_brief"
+      ],
+      "years": [
+        2023,
+        2024
+      ]
+    },
+    {
+      "company": "Tesla, Inc.",
+      "concepts": [
+        "InterestExpense",
+        "LongTermDebt",
+        "NetIncomeLoss",
+        "StockholdersEquity"
+      ],
+      "error": null,
+      "has_verified_changes": true,
+      "metric_counts": {
+        "2023": 5,
+        "2024": 4
+      },
+      "status": "success",
+      "theme": "leverage_analysis",
+      "ticker": "TSLA",
+      "total_metrics": 9,
+      "trace_steps": [
+        "lookup_company",
+        "lookup_company",
+        "fetch_companyfacts",
+        "fetch_companyfacts",
+        "extract_companyfacts",
+        "extract_companyfacts",
+        "generate_brief",
+        "generate_brief"
+      ],
+      "years": [
+        2023,
+        2024
+      ]
+    },
+    {
+      "company": "NVIDIA CORP",
+      "concepts": [
+        "InterestExpense",
+        "LongTermDebt",
+        "LongTermDebtNoncurrent",
+        "NetIncomeLoss",
+        "StockholdersEquity"
+      ],
+      "error": null,
+      "has_verified_changes": true,
+      "metric_counts": {
+        "2024": 5,
+        "2025": 4
+      },
+      "status": "success",
+      "theme": "leverage_analysis",
+      "ticker": "NVDA",
+      "total_metrics": 9,
+      "trace_steps": [
+        "lookup_company",
+        "lookup_company",
+        "fetch_companyfacts",
+        "fetch_companyfacts",
+        "extract_companyfacts",
+        "extract_companyfacts",
+        "generate_brief",
+        "generate_brief"
+      ],
+      "years": [
+        2024,
+        2025
+      ]
+    }
+  ]
+}

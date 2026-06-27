@@ -39,6 +39,20 @@ It is not a generic SEC chatbot and not an investment recommendation engine. The
 - Dual critic: deterministic numeric guardrail plus LLM semantic critic.
 - Workpaper trace with `reasoning_summary` and `decision_basis`, not raw chain-of-thought.
 
+**M4: demo UI and MCP integration**
+
+- Static Streamlit UI over committed M3 release artifacts.
+- Minimal read-only MCP server for retrieval and numeric verification.
+
+**M5: universal SEC companyfacts analysis**
+
+- Live SEC ticker lookup and submissions metadata parsing.
+- Structured SEC `companyfacts` retrieval for deterministic XBRL facts.
+- Universal analyzer for ticker/theme/year numeric analysis.
+- Verified change tables and metric-level analyst notes.
+- Streamlit Live SEC Analysis tab.
+- Multi-company live smoke validation for AAPL, TSLA, and NVDA.
+
 ## M3 Demo Results
 
 The M3 demo was run with real Bedrock tool calling and passed through Phase 5.
@@ -104,6 +118,26 @@ User Question
 ```
 
 See [docs/architecture.md](docs/architecture.md) for a concise architecture summary.
+
+## M5 Live SEC Validation
+
+M5 adds deterministic live SEC companyfacts analysis. This path does not call Bedrock and does not replace the M3 ReAct agent; it is a structured numeric analysis layer for ticker-based demos.
+
+Run the live smoke check when SEC network access is available:
+
+```bash
+python3 scripts/run_m5_live_smoke.py --json-output examples/m5_live_smoke.json
+```
+
+Latest smoke result:
+
+| Ticker | Theme | Years | Status | Metrics | Verified Changes |
+|---|---|---:|---|---:|---|
+| AAPL | `leverage_analysis` | 2023, 2024 | success | 9 | yes |
+| TSLA | `leverage_analysis` | 2023, 2024 | success | 9 | yes |
+| NVDA | `leverage_analysis` | 2024, 2025 | success | 9 | yes |
+
+See [M5_RELEASE_NOTES.md](M5_RELEASE_NOTES.md) and [examples/m5_live_smoke.json](examples/m5_live_smoke.json).
 
 ## M3 Demo Artifacts
 
@@ -173,11 +207,14 @@ python3 -m unittest discover tests
 ```
 
 The M3 release package was verified with:
+Current full suite:
 
 ```text
-Ran 35 tests in 0.009s
-OK
+Ran 128 tests
+OK (skipped=14)
 ```
+
+The skipped tests are live SEC integration checks that require network access to `sec.gov`.
 
 ## Disclaimer
 
