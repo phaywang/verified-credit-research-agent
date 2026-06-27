@@ -219,6 +219,95 @@ class UniversalAnalyzerTest(unittest.TestCase):
         self.assertIn("free_cash_flow", self.analyzer._last_metric_coverage["calculated_metrics"])
         self.assertNotIn("free_cash_flow", self.analyzer._last_metric_coverage["unavailable_metrics"])
 
+    def test_free_cash_flow_extraction_adds_missing_dependency_metrics(self):
+        """Requested calculated metrics should pull deterministic source inputs."""
+        companyfacts = {
+            "facts": {
+                "us-gaap": {
+                    "NetCashProvidedByUsedInOperatingActivities": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2025,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2026-01-30",
+                                    "end": "2025-12-31",
+                                    "val": 1000000000,
+                                }
+                            ]
+                        }
+                    },
+                    "PaymentsToAcquirePropertyPlantAndEquipment": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2025,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2026-01-30",
+                                    "end": "2025-12-31",
+                                    "val": 250000000,
+                                }
+                            ]
+                        }
+                    },
+                }
+            }
+        }
+
+        self.analyzer.config_loader = MagicMock()
+        self.analyzer.config_loader.get_risk_theme.return_value = {
+            "metrics": ["operating_cash_flow", "free_cash_flow"],
+        }
+        self.analyzer.config_loader.load_metrics.return_value = {
+            "operating_cash_flow": MetricDefinition(
+                name="operating_cash_flow",
+                description="Operating cash flow",
+                xbrl_selectors=[
+                    {"concept": "NetCashProvidedByUsedInOperatingActivities"}
+                ],
+            ),
+            "capital_expenditures": MetricDefinition(
+                name="capital_expenditures",
+                description="Capital expenditures",
+                xbrl_selectors=[
+                    {"concept": "PaymentForCapitalExpenditures"}
+                ],
+            ),
+            "free_cash_flow": MetricDefinition(
+                name="free_cash_flow",
+                description="Free cash flow",
+                formula="operating_cash_flow - capital_expenditures",
+            ),
+        }
+
+        metrics = self.analyzer._extract_metrics(
+            companyfacts, "solvency_assessment", [2025]
+        )
+
+        by_name = {metric.metric_name: metric for metric in metrics[2025]}
+        self.assertEqual(by_name["free_cash_flow"].value, 750.0)
+        self.assertEqual(
+            self.analyzer._last_metric_coverage["dependency_metrics"],
+            ["capital_expenditures"],
+        )
+        self.assertNotIn(
+            "free_cash_flow",
+            self.analyzer._last_metric_coverage["unavailable_metrics"],
+        )
+        resolution = [
+            item for item in self.analyzer._last_metric_coverage[
+                "metric_resolutions_by_year"
+            ]["2025"]
+            if item["metric_name"] == "free_cash_flow"
+        ][0]
+        self.assertEqual(resolution["status"], "calculated_metric")
+        self.assertEqual(
+            resolution["decision_basis"],
+            "deterministic_calculation_from_dependencies",
+        )
+
     def test_records_unavailable_metric_in_coverage(self):
         """Unsupported universal metrics should be structured coverage limits."""
         self.analyzer.config_loader = MagicMock()

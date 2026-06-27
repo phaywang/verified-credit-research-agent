@@ -104,6 +104,140 @@ class MetricResolverTest(unittest.TestCase):
             "narrower_component",
         )
 
+    def test_total_debt_safe_alternate_is_accepted_without_configured_mapping(self):
+        inventory = self._inventory(
+            {
+                "DebtAndFinancingArrangementsAmount": 1200000000,
+                "DebtCurrent": 200000000,
+            }
+        )
+
+        resolution = self.resolver.resolve(
+            "total_debt",
+            inventory,
+            ["MissingDebtConcept"],
+        )
+
+        self.assertEqual(resolution.status, "resolved")
+        self.assertEqual(
+            resolution.accepted_concept,
+            "DebtAndFinancingArrangementsAmount",
+        )
+        self.assertEqual(resolution.selected_fact.value, 1200.0)
+        rejected = {
+            candidate.fact.concept: candidate.classification
+            for candidate in resolution.rejected_candidates
+        }
+        self.assertEqual(rejected["DebtCurrent"], "narrower_component")
+
+    def test_current_debt_rejects_long_term_debt_as_mixed_fallback(self):
+        inventory = self._inventory({"LongTermDebt": 5000000000})
+
+        resolution = self.resolver.resolve(
+            "current_debt",
+            inventory,
+            ["MissingCurrentDebtConcept"],
+        )
+
+        self.assertEqual(resolution.status, "unresolved")
+        self.assertEqual(
+            resolution.rejected_candidates[0].classification,
+            "broader_or_mixed",
+        )
+
+    def test_cash_and_equivalents_rejects_restricted_cash(self):
+        inventory = self._inventory({"RestrictedCashAndCashEquivalents": 250000000})
+
+        resolution = self.resolver.resolve(
+            "cash_and_equivalents",
+            inventory,
+            ["MissingCashConcept"],
+        )
+
+        self.assertEqual(resolution.status, "unresolved")
+        self.assertEqual(
+            resolution.rejected_candidates[0].classification,
+            "broader_or_mixed",
+        )
+
+    def test_operating_cash_flow_accepts_safe_alternate(self):
+        inventory = self._inventory(
+            {"NetCashProvidedByUsedInOperatingActivities": 7500000000}
+        )
+
+        resolution = self.resolver.resolve(
+            "operating_cash_flow",
+            inventory,
+            ["MissingOperatingCashFlowConcept"],
+        )
+
+        self.assertEqual(resolution.status, "resolved")
+        self.assertEqual(
+            resolution.accepted_concept,
+            "NetCashProvidedByUsedInOperatingActivities",
+        )
+        self.assertEqual(resolution.selected_fact.value, 7500.0)
+
+    def test_capex_rejects_asset_sale_proceeds(self):
+        inventory = self._inventory({"ProceedsFromSaleOfPropertyPlantAndEquipment": 100000000})
+
+        resolution = self.resolver.resolve(
+            "capital_expenditures",
+            inventory,
+            ["MissingCapexConcept"],
+        )
+
+        self.assertEqual(resolution.status, "unresolved")
+        self.assertEqual(
+            resolution.rejected_candidates[0].classification,
+            "cash_flow_proxy",
+        )
+
+    def test_dividend_payments_rejects_declared_dividends(self):
+        inventory = self._inventory({"DividendsDeclared": 400000000})
+
+        resolution = self.resolver.resolve(
+            "dividend_payments",
+            inventory,
+            ["MissingDividendConcept"],
+        )
+
+        self.assertEqual(resolution.status, "unresolved")
+        self.assertEqual(
+            resolution.rejected_candidates[0].classification,
+            "broader_or_mixed",
+        )
+
+    def test_current_assets_rejects_noncurrent_assets(self):
+        inventory = self._inventory({"AssetsNoncurrent": 15000000000})
+
+        resolution = self.resolver.resolve(
+            "current_assets",
+            inventory,
+            ["MissingCurrentAssetsConcept"],
+        )
+
+        self.assertEqual(resolution.status, "unresolved")
+        self.assertEqual(
+            resolution.rejected_candidates[0].classification,
+            "not_relevant",
+        )
+
+    def test_inventory_rejects_reserve_component(self):
+        inventory = self._inventory({"InventoryReserve": 1000000})
+
+        resolution = self.resolver.resolve(
+            "inventory",
+            inventory,
+            ["MissingInventoryConcept"],
+        )
+
+        self.assertEqual(resolution.status, "unresolved")
+        self.assertEqual(
+            resolution.rejected_candidates[0].classification,
+            "narrower_component",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

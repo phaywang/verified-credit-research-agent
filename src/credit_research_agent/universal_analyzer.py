@@ -33,6 +33,11 @@ from credit_research_agent.xbrl_inventory import XBRLFactInventoryBuilder
 logger = logging.getLogger(__name__)
 
 
+CALCULATED_METRIC_DEPENDENCIES = {
+    "free_cash_flow": ["operating_cash_flow", "capital_expenditures"],
+}
+
+
 @dataclass
 class AnalysisResult:
     """Result of universal company analysis."""
@@ -300,9 +305,16 @@ class UniversalCreditAnalyzer:
 
         theme_config = self.config_loader.get_risk_theme(risk_theme)
         metric_names = self._metric_names_for_theme(theme_config)
-        metric_selectors = self._metric_selectors(metric_names)
+        extraction_metric_names = self._expand_metric_dependencies(metric_names)
+        dependency_metrics = [
+            metric_name
+            for metric_name in extraction_metric_names
+            if metric_name not in metric_names
+        ]
+        metric_selectors = self._metric_selectors(extraction_metric_names)
         self._last_metric_coverage = {
             "requested_metrics": metric_names,
+            "dependency_metrics": dependency_metrics,
             "direct_xbrl_metrics": sorted(metric_selectors.keys()),
             "calculated_metrics": [],
             "available_metrics": [],
@@ -323,7 +335,25 @@ class UniversalCreditAnalyzer:
 
             extracted: Dict[str, MetricValue] = {}
             resolutions = []
-            for metric_name in metric_names:
+            for metric_name in extraction_metric_names:
+                if (
+                    metric_name in CALCULATED_METRIC_DEPENDENCIES
+                    and not metric_selectors.get(metric_name)
+                ):
+                    resolutions.append(
+                        {
+                            "metric_name": metric_name,
+                            "fiscal_year": year,
+                            "status": "calculated_metric",
+                            "accepted_concept": None,
+                            "selected_fact": None,
+                            "candidates": [],
+                            "rejected_candidates": [],
+                            "decision_basis": "deterministic_calculation_from_dependencies",
+                            "requires_review": False,
+                        }
+                    )
+                    continue
                 resolution = self.metric_resolver.resolve(
                     metric_name,
                     inventory,
@@ -382,6 +412,16 @@ class UniversalCreditAnalyzer:
         if isinstance(theme_config, dict):
             return theme_config.get("key_metrics") or theme_config.get("metrics", [])
         return list(getattr(theme_config, "key_metrics", []))
+
+    @staticmethod
+    def _expand_metric_dependencies(metric_names: List[str]) -> List[str]:
+        """Include deterministic source metrics required to calculate requested metrics."""
+        expanded = list(metric_names)
+        for metric_name in metric_names:
+            for dependency in CALCULATED_METRIC_DEPENDENCIES.get(metric_name, []):
+                if dependency not in expanded:
+                    expanded.append(dependency)
+        return expanded
 
     def _metric_selectors(self, metric_names: List[str]) -> Dict[str, List[str]]:
         """Build metric-to-XBRL concept mapping from configured metric definitions."""
