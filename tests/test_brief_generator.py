@@ -188,6 +188,23 @@ class BriefGeneratorTest(unittest.TestCase):
         self.assertIn("Analyst notes", brief)
         self.assertIn("higher leverage", brief)
 
+    def test_brief_includes_credit_work_product_sections(self):
+        """Test that brief reads like an analyst work product, not only metrics."""
+        gen = BriefGenerator()
+        brief = gen.generate_brief(
+            "Ford Motor Company",
+            "debt_liquidity",
+            self.ford_metrics,
+        )
+
+        self.assertIn("## Credit Read-Through", brief)
+        self.assertIn("## Watch Items for Analyst Review", brief)
+        self.assertIn("## Verification Basis", brief)
+        self.assertIn("## Limitations", brief)
+        self.assertIn("## Follow-Up Questions", brief)
+        self.assertIn("Source", brief)
+        self.assertIn("Verified in both years", brief)
+
     def test_brief_withholds_change_when_metric_not_verified_in_both_years(self):
         """Test that trend conclusions require verified values in both years."""
         metrics = VerifiedMetricsSet(

@@ -66,6 +66,10 @@ class BriefGenerator:
             "",
             self._generate_summary(verified_metrics, theme.description),
             "",
+            "## Credit Read-Through",
+            "",
+            self._generate_credit_readthrough(verified_metrics, risk_theme_id),
+            "",
             "## Key Metrics",
             "",
             self._generate_metrics_section(verified_metrics),
@@ -73,6 +77,14 @@ class BriefGenerator:
             "## Verified Changes",
             "",
             self._generate_changes_section(verified_metrics),
+            "",
+            "## Watch Items for Analyst Review",
+            "",
+            self._generate_watch_items(verified_metrics, risk_theme_id),
+            "",
+            "## Verification Basis",
+            "",
+            self._generate_verification_basis(verified_metrics),
             "",
         ]
 
@@ -85,6 +97,14 @@ class BriefGenerator:
             ])
 
         brief_parts.extend([
+            "## Limitations",
+            "",
+            self._generate_limitations(verified_metrics, risk_theme_id),
+            "",
+            "## Follow-Up Questions",
+            "",
+            self._generate_follow_up_questions(verified_metrics, risk_theme_id),
+            "",
             "## Conclusion",
             "",
             self._generate_conclusion(verified_metrics, risk_theme_id),
@@ -95,6 +115,90 @@ class BriefGenerator:
         ])
 
         return "\n".join(brief_parts)
+
+    def _generate_credit_readthrough(
+        self,
+        metrics: VerifiedMetricsSet,
+        risk_theme_id: str,
+    ) -> str:
+        """Generate analyst-style interpretation from verified metric changes."""
+        if len(metrics.fiscal_years) < 2:
+            return (
+                "Only one fiscal year is available, so the work product is limited to "
+                "a point-in-time metric read rather than a trend conclusion."
+            )
+
+        start_year = min(metrics.fiscal_years)
+        end_year = max(metrics.fiscal_years)
+        changes = self._change_records(metrics)
+
+        if not changes:
+            return (
+                f"No common verified metrics are available for both {start_year} and "
+                f"{end_year}. The agent therefore withholds directional credit conclusions."
+            )
+
+        adverse = []
+        favorable = []
+        mixed = []
+
+        for change in changes:
+            metric_name = change["metric_name"]
+            absolute = change["absolute_change"]
+            signal = self._credit_signal(metric_name, absolute)
+            sentence = (
+                f"{metric_name.replace('_', ' ')} moved from "
+                f"{self._format_value(change['start_value'], change['unit'])} in {start_year} "
+                f"to {self._format_value(change['end_value'], change['unit'])} in {end_year} "
+                f"({self._format_signed_value(absolute, change['unit'])}; "
+                f"{self._format_percent(change['percent_change'])})."
+            )
+            if signal == "adverse":
+                adverse.append(sentence)
+            elif signal == "favorable":
+                favorable.append(sentence)
+            else:
+                mixed.append(sentence)
+
+        lines = [
+            f"The verified metric set gives a {risk_theme_id.replace('_', ' ')} read "
+            f"for fiscal {start_year} to {end_year}. The interpretation below is limited "
+            "to metrics with verified values in both years."
+        ]
+
+        if adverse:
+            lines.append("")
+            lines.append("**Pressure signals**")
+            lines.extend(f"- {item}" for item in adverse)
+        if favorable:
+            lines.append("")
+            lines.append("**Supportive signals**")
+            lines.extend(f"- {item}" for item in favorable)
+        if mixed:
+            lines.append("")
+            lines.append("**Context-dependent signals**")
+            lines.extend(f"- {item}" for item in mixed)
+
+        if adverse and favorable:
+            lines.append("")
+            lines.append(
+                "Overall read: signals are mixed, so the agent avoids a broad upgrade/"
+                "deterioration label and points the analyst to the specific metric drivers."
+            )
+        elif adverse:
+            lines.append("")
+            lines.append(
+                "Overall read: verified metrics lean toward higher credit pressure on this "
+                "theme, subject to the limitations below."
+            )
+        elif favorable:
+            lines.append("")
+            lines.append(
+                "Overall read: verified metrics lean toward lower credit pressure on this "
+                "theme, subject to the limitations below."
+            )
+
+        return "\n".join(lines)
 
     def _generate_summary(self, metrics: VerifiedMetricsSet, theme_desc: str) -> str:
         """Generate executive summary from metrics."""
@@ -207,6 +311,175 @@ class BriefGenerator:
 
         return "\n".join(lines)
 
+    def _change_records(self, metrics: VerifiedMetricsSet) -> List[Dict[str, Any]]:
+        """Return deterministic change records for common verified metrics."""
+        if len(metrics.fiscal_years) < 2:
+            return []
+
+        start_year = min(metrics.fiscal_years)
+        end_year = max(metrics.fiscal_years)
+        start_metrics = self._verified_metric_map(metrics, start_year)
+        end_metrics = self._verified_metric_map(metrics, end_year)
+        records = []
+
+        for metric_name in sorted(set(start_metrics) & set(end_metrics)):
+            start_metric = start_metrics[metric_name]
+            end_metric = end_metrics[metric_name]
+            if start_metric.value is None or end_metric.value is None:
+                continue
+            absolute_change = end_metric.value - start_metric.value
+            percent_change = None
+            if start_metric.value != 0:
+                percent_change = absolute_change / abs(start_metric.value) * 100
+            records.append(
+                {
+                    "metric_name": metric_name,
+                    "start_value": start_metric.value,
+                    "end_value": end_metric.value,
+                    "absolute_change": absolute_change,
+                    "percent_change": percent_change,
+                    "unit": end_metric.unit or start_metric.unit,
+                }
+            )
+
+        return records
+
+    def _generate_watch_items(
+        self,
+        metrics: VerifiedMetricsSet,
+        risk_theme_id: str,
+    ) -> str:
+        """Generate practical analyst watch items from metric movement."""
+        changes = self._change_records(metrics)
+        if not changes:
+            return (
+                "- Confirm whether additional SEC filing sections provide comparable "
+                "metrics before making a directional risk call."
+            )
+
+        items = []
+        for change in changes:
+            metric_name = change["metric_name"]
+            signal = self._credit_signal(metric_name, change["absolute_change"])
+            readable = metric_name.replace("_", " ")
+
+            if signal == "adverse":
+                items.append(
+                    f"- Review what drove the adverse movement in {readable} and whether "
+                    "management identifies a temporary or structural driver."
+                )
+            elif signal == "favorable":
+                items.append(
+                    f"- Confirm whether the favorable movement in {readable} is recurring "
+                    "or partly timing-related."
+                )
+
+        if risk_theme_id == "leverage_analysis":
+            items.append("- Compare debt movement with EBITDA, operating income, and interest cost coverage.")
+        elif risk_theme_id == "debt_liquidity":
+            items.append("- Reconcile cash, credit facility availability, maturities, and management liquidity commentary.")
+        elif risk_theme_id == "cash_flow_coverage":
+            items.append("- Compare cash generation with required debt service and capital spending.")
+        else:
+            items.append("- Check whether off-balance-sheet commitments or subsequent events change the risk view.")
+
+        return "\n".join(self._dedupe(items))
+
+    def _generate_verification_basis(self, metrics: VerifiedMetricsSet) -> str:
+        """Generate source and coverage table for verified workpaper review."""
+        source_counts: Dict[str, int] = {}
+        verified_by_metric: Dict[str, set] = {}
+
+        for year, year_metrics in metrics.metrics.items():
+            for metric in year_metrics:
+                source_counts[metric.source] = source_counts.get(metric.source, 0) + 1
+                if metric.status == "verified":
+                    verified_by_metric.setdefault(metric.metric_name, set()).add(year)
+
+        lines = [
+            "| Check | Result |",
+            "|-------|--------|",
+            f"| Fiscal years covered | {', '.join(str(year) for year in sorted(metrics.fiscal_years))} |",
+            f"| Source mix | {self._format_source_counts(source_counts)} |",
+            f"| Verified metrics | {sum(len(year_metrics) for year_metrics in metrics.metrics.values())} extracted metric rows |",
+        ]
+
+        if len(metrics.fiscal_years) >= 2:
+            required_years = set(metrics.fiscal_years)
+            comparable = sorted(
+                metric_name
+                for metric_name, years in verified_by_metric.items()
+                if required_years.issubset(years)
+            )
+            lines.append(
+                "| Verified in both years | "
+                f"{', '.join(comparable) if comparable else 'None'} |"
+            )
+
+        return "\n".join(lines)
+
+    def _generate_limitations(
+        self,
+        metrics: VerifiedMetricsSet,
+        risk_theme_id: str,
+    ) -> str:
+        """Generate honest limitations for analyst review."""
+        lines = [
+            "- This work product uses deterministic SEC/XBRL metric extraction and does not forecast future performance.",
+            "- Directional conclusions are limited to metrics verified in the selected fiscal years.",
+            "- The brief is not a rating action, investment recommendation, or covenant compliance opinion.",
+        ]
+
+        if risk_theme_id == "debt_liquidity":
+            lines.append(
+                "- Liquidity conclusions require analyst review of credit facility availability, debt maturities, and management commentary."
+            )
+        elif risk_theme_id == "leverage_analysis":
+            lines.append(
+                "- Leverage conclusions should be supplemented with EBITDA, lease adjustments, and issuer-specific debt definitions."
+            )
+
+        unsupported_count = sum(
+            1 for year_metrics in metrics.metrics.values()
+            for metric in year_metrics if metric.status != "verified"
+        )
+        if unsupported_count:
+            lines.append(
+                f"- {unsupported_count} metric rows were not verified and are not used for trend conclusions."
+            )
+
+        return "\n".join(lines)
+
+    def _generate_follow_up_questions(
+        self,
+        metrics: VerifiedMetricsSet,
+        risk_theme_id: str,
+    ) -> str:
+        """Generate analyst follow-up questions."""
+        questions = [
+            "- What management explanation supports the largest verified movement?",
+            "- Are there material subsequent events after the latest fiscal period?",
+            "- Do segment, geography, or financing-entity differences affect metric comparability?",
+        ]
+
+        if risk_theme_id == "debt_liquidity":
+            questions.insert(
+                1,
+                "- How much liquidity is immediately available versus restricted, committed, or dependent on market access?",
+            )
+        elif risk_theme_id == "leverage_analysis":
+            questions.insert(
+                1,
+                "- How do adjusted leverage and coverage ratios compare with rating-agency or lender definitions?",
+            )
+
+        if len(metrics.fiscal_years) >= 2:
+            start_year = min(metrics.fiscal_years)
+            end_year = max(metrics.fiscal_years)
+            questions.append(f"- Did accounting policy or presentation changes affect comparability between {start_year} and {end_year}?")
+
+        return "\n".join(questions)
+
     @staticmethod
     def _verified_metric_map(
         metrics: VerifiedMetricsSet,
@@ -242,6 +515,58 @@ class BriefGenerator:
         if value < 0:
             return "decreased"
         return "unchanged"
+
+    @staticmethod
+    def _credit_signal(metric_name: str, absolute_change: float) -> str:
+        """Classify a metric movement as favorable/adverse/mixed for credit review."""
+        name = metric_name.lower()
+        if absolute_change == 0:
+            return "mixed"
+
+        adverse_when_up = (
+            "debt",
+            "liabilit",
+            "interest",
+            "expense",
+            "borrow",
+            "leverage",
+        )
+        favorable_when_up = (
+            "cash",
+            "liquidity",
+            "equity",
+            "income",
+            "earnings",
+            "revenue",
+            "asset",
+            "working_capital",
+        )
+
+        if any(token in name for token in adverse_when_up):
+            return "adverse" if absolute_change > 0 else "favorable"
+        if any(token in name for token in favorable_when_up):
+            return "favorable" if absolute_change > 0 else "adverse"
+        return "mixed"
+
+    @staticmethod
+    def _dedupe(items: List[str]) -> List[str]:
+        """Preserve order while removing duplicate analyst notes."""
+        seen = set()
+        deduped = []
+        for item in items:
+            if item not in seen:
+                deduped.append(item)
+                seen.add(item)
+        return deduped
+
+    @staticmethod
+    def _format_source_counts(source_counts: Dict[str, int]) -> str:
+        if not source_counts:
+            return "No source rows"
+        return ", ".join(
+            f"{source}: {count}"
+            for source, count in sorted(source_counts.items())
+        )
 
     @staticmethod
     def _analyst_note(
