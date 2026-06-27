@@ -100,6 +100,22 @@ def inject_css() -> None:
   section[data-testid="stSidebar"] hr {
     border-color: #374151;
   }
+  section[data-testid="stSidebar"] [role="radiogroup"] label {
+    background: #182235;
+    border: 1px solid #2d3748;
+    border-radius: 7px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+  }
+  section[data-testid="stSidebar"] [role="radiogroup"] label:hover {
+    background: #22304a;
+    border-color: #475569;
+  }
+  section[data-testid="stSidebar"] [role="radiogroup"] label p {
+    color: #f8fafc;
+    font-weight: 650;
+    font-size: 0.88rem;
+  }
   h1, h2, h3 {
     letter-spacing: 0;
   }
@@ -226,9 +242,25 @@ def inject_css() -> None:
     border-radius: 6px;
     color: #344054;
   }
-  .small-muted {
+.small-muted {
     color: var(--muted);
     font-size: 0.86rem;
+  }
+  .module-header {
+    border: 1px solid var(--line);
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 11px 13px;
+    margin-bottom: 14px;
+  }
+  .module-header strong {
+    color: var(--ink);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .module-header span {
+    color: var(--muted);
+    font-size: 0.84rem;
   }
   .workflow-step {
     border: 1px solid var(--line);
@@ -384,7 +416,16 @@ def render_topbar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> N
     )
 
 
-def render_sidebar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> None:
+PAGE_DESCRIPTIONS = {
+    "Control Room": "Operating dashboard, system controls, and current validation status.",
+    "Research Console": "Live SEC companyfacts workflow for ticker-level deterministic analysis.",
+    "Workpaper Audit": "Frozen M3 final brief, trace metrics, and ReAct tool ledger.",
+    "Model Controls": "Numeric guardrail and semantic critic review outputs.",
+    "System Architecture": "End-to-end system flow and LLM/tool responsibility boundary.",
+}
+
+
+def render_sidebar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> str:
     with st.sidebar:
         st.markdown(
             """
@@ -394,10 +435,13 @@ def render_sidebar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> 
             unsafe_allow_html=True,
         )
         st.markdown("---")
-        st.markdown("**Workspace**")
-        st.markdown("- Live SEC companyfacts mode")
-        st.markdown("- Frozen M3 ReAct workpaper")
-        st.markdown("- Guardrail and critic audit")
+        st.markdown("**Modules**")
+        selected_page = st.radio(
+            "Primary navigation",
+            list(PAGE_DESCRIPTIONS.keys()),
+            index=0,
+            label_visibility="collapsed",
+        )
         st.markdown("---")
         st.markdown("**Control Status**")
         st.markdown(f"- Numeric guardrail: `{final_metrics.get('final_answer_numeric_guardrail', 'n/a')}`")
@@ -410,6 +454,19 @@ def render_sidebar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> 
             "LLM stages handle planning, query rewrite, synthesis, and semantic review. "
             "Python tools execute retrieval, calculations, verification, guardrails, and trace persistence."
         )
+        return selected_page
+
+
+def render_module_header(page: str) -> None:
+    st.markdown(
+        f"""
+<div class="module-header">
+  <strong>{page}</strong>
+  <span>{PAGE_DESCRIPTIONS[page]}</span>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
 
 def render_metric_row(metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> None:
@@ -814,28 +871,19 @@ def main() -> None:
     semantic_critic = read_json("phase5_semantic_critic.json")
     final_metrics = trace_log.get("final_metrics", {})
 
-    render_sidebar(final_metrics, guardrail)
+    selected_page = render_sidebar(final_metrics, guardrail)
     render_topbar(final_metrics, guardrail)
+    render_module_header(selected_page)
 
-    overview, live_sec, workpaper, guardrails, architecture = st.tabs(
-        [
-            "Control Room",
-            "Research Console",
-            "Workpaper Audit",
-            "Model Controls",
-            "System Architecture",
-        ]
-    )
-
-    with overview:
+    if selected_page == "Control Room":
         render_overview(final_metrics, guardrail)
-    with live_sec:
+    elif selected_page == "Research Console":
         render_live_sec_analysis()
-    with workpaper:
+    elif selected_page == "Workpaper Audit":
         render_workpaper(final_answer, trace_log, tool_trace)
-    with guardrails:
+    elif selected_page == "Model Controls":
         render_guardrails(guardrail, semantic_critic)
-    with architecture:
+    elif selected_page == "System Architecture":
         render_architecture()
 
 

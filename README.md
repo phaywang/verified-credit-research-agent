@@ -163,7 +163,7 @@ streamlit run streamlit_app.py
 
 The default UI mode is static artifact mode. It loads files from `examples/m3_full_demo/` and does not require Bedrock credentials or SEC network access.
 
-The **Research Console** tab accepts a ticker, risk theme, and fiscal years, then retrieves structured SEC `companyfacts` data for deterministic metric extraction. This mode does not call Bedrock, but it does require network access to `sec.gov`.
+The left sidebar provides primary module navigation. The **Research Console** module accepts a ticker, risk theme, and fiscal years, then retrieves structured SEC `companyfacts` data for deterministic metric extraction. This mode does not call Bedrock, but it does require network access to `sec.gov`.
 
 The UI shows:
 

@@ -18,9 +18,9 @@ examples/m3_full_demo/
 
 It does not call Bedrock, run the M3 pipeline, require API credentials, or require SEC network access.
 
-## Live SEC Analysis Mode
+## Research Console Mode
 
-The **Live SEC Analysis** tab accepts:
+The **Research Console** module accepts:
 
 - ticker, such as `AAPL`
 - risk theme, such as `Leverage Analysis`
@@ -73,6 +73,6 @@ The default smoke checks AAPL, TSLA, and NVDA leverage analysis and verifies tha
 
 ## Notes
 
-Live Bedrock mode is not implemented in this UI. The live SEC tab is deterministic and uses SEC structured facts rather than the M3 Bedrock ReAct loop.
+Live Bedrock mode is not implemented in this UI. The live SEC module is deterministic and uses SEC structured facts rather than the M3 Bedrock ReAct loop.
 
 This demo is for engineering and research presentation only. It is not financial advice.
