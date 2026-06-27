@@ -1,103 +1,124 @@
 # Verified Credit Research Agent
 
-LLM-driven ReAct agent for SEC filing-based credit research, with deterministic financial verification and auditable workpaper traces.
+LLM-driven credit research workbench for SEC filing analysis, with statement-first financial fact extraction, deterministic numeric verification, and auditable workpaper traces.
 
-This project is a narrow, demo-ready credit research harness for one question:
+This project is designed to show what a production-minded financial research agent should look like when the domain is high-stakes: the LLM can plan, rewrite queries, synthesize, and critique, but financial numbers must come from deterministic SEC-data pipelines and verified calculations.
 
-> How did Ford's debt and liquidity risk change from 2023 to 2025, and what evidence supports the change?
+> Demo focus: debt, liquidity, leverage, solvency, and cash-flow coverage analysis over U.S. public company SEC filings.
 
-It is not a generic SEC chatbot and not an investment recommendation engine. The goal is to demonstrate an auditable agent workflow for debt and liquidity risk research over SEC filings.
+![Research Console](docs/assets/research-console-request.png)
 
-## Milestone Evolution
+## Why This Is Not A Normal RAG Bot
 
-**M1: rule-based retrieval loop**
+Ordinary RAG retrieves text and summarizes it. That is not enough for credit research because a credible analyst memo needs source discipline, numeric consistency, and a review trail.
 
-- SEC filing ingestion for Ford 2023 and 2025 filings.
-- Section-aware chunking.
-- BM25 plus dense vector retrieval.
-- RRF fusion and reranking.
-- Evidence sufficiency checks.
-- Query rewrite and re-retrieval.
-- Cited final answer and trace log.
+This system separates responsibilities:
 
-**M2: deterministic numeric verification + memory / skill + evaluation**
+- **LLM layer:** research planning, ReAct loop steering, query rewriting, synthesis, semantic critique, and optional analyst-style workpaper notes.
+- **Deterministic Python layer:** SEC retrieval, statement table extraction, XBRL/companyfacts cross-checking, calculations, numeric verification, guardrails, and trace persistence.
+- **Audit layer:** evidence tables, source registers, tool traces, guardrail outputs, critic reports, and final briefs.
 
-- XBRL-first debt fact extraction.
-- Text-based extraction for liquidity metrics where appropriate.
-- Deterministic numeric claim verification.
-- Verified numeric conclusions written back into the brief.
-- Research memory and debt/liquidity skill behavior.
-- Evaluation metrics and workpaper artifacts.
+The LLM is not allowed to invent or calculate financial numbers. Unsupported numeric claims are blocked, repaired, or excluded.
 
-**M3: LLM-driven ReAct agent**
+## Current Capabilities
 
-- Bedrock Claude tool calling.
-- LLM query rewrite with deterministic fallback.
-- LLM synthesis bounded by verified facts.
-- ReAct controller that calls deterministic tools.
-- Numeric guardrails that block unsupported financial numbers.
-- Dual critic: deterministic numeric guardrail plus LLM semantic critic.
-- Workpaper trace with `reasoning_summary` and `decision_basis`, not raw chain-of-thought.
+### Statement-First SEC Data Entrance
 
-**M4: demo UI and MCP integration**
+The newest data path reads the actual 10-K filing package before falling back to SEC companyfacts:
 
-- Static Streamlit UI over committed M3 release artifacts.
-- Minimal read-only MCP server for retrieval and numeric verification.
+```text
+SEC 10-K HTML / inline XBRL
+-> Statement Table Extractor
+-> Statement Row Normalizer
+-> Statement Metric Resolver
+-> Companyfacts Cross-check / Fallback
+-> Deterministic Verification
+-> Brief / Workpaper / UI
+```
 
-**M5: universal SEC companyfacts analysis**
+The statement layer extracts:
 
-- Live SEC ticker lookup and submissions metadata parsing.
-- Structured SEC `companyfacts` retrieval for deterministic XBRL facts.
-- Universal analyzer for ticker/theme/year numeric analysis.
-- Verified change tables and metric-level analyst notes.
-- Streamlit Research Console for live SEC companyfacts analysis.
-- Multi-company live smoke validation for AAPL, TSLA, and NVDA.
+- consolidated balance sheet rows
+- consolidated statement of operations / income rows
+- consolidated cash flow statement rows
+- row labels, normalized labels, fiscal years, values, units, XBRL concepts, filing URLs, and accession numbers
 
-## M3 Demo Results
+It currently resolves metrics such as:
 
-The M3 demo was run with real Bedrock tool calling and passed through Phase 5.
+- operating cash flow
+- capital expenditures
+- free cash flow from verified inputs
+- dividend payments when explicitly disclosed
+- interest expense when statement-confirmed
+- current debt components
+- long-term debt
+- total debt from verified current + long-term debt
+- cash and cash equivalents
 
-| Metric | Result |
-|---|---:|
-| `phase2_numeric_guardrail` | `block` |
-| `phase2_repaired` | `true` |
-| `phase3_fallback_used` | `false` |
-| `phase4_tool_call_count` | `9` |
-| `final_answer_numeric_guardrail` | `pass` |
-| blocked claims | `0` |
-| `phase5_semantic_approved` | `true` |
-| tests | `35 passed` |
+Companyfacts remains useful, but it is now a cross-check and fallback rather than the only source.
 
-The Phase 4 ReAct loop made these tool calls:
+### Agentic SEC Research Harness
 
-- `query_memory`
-- `hybrid_retrieve`
-- `verify_numeric_claim` five times
-- `numeric_guardrail_check`
-- `write_workpaper`
+The original Ford demo includes:
 
-## Neurosymbolic Boundary
+- section-aware filing ingestion
+- BM25 + dense vector retrieval
+- reciprocal rank fusion
+- reranking
+- evidence sufficiency checks
+- query rewrite and re-retrieval
+- cited final answer
+- trace logs and workpaper artifacts
 
-The project deliberately separates LLM judgment from deterministic financial controls.
+### LLM ReAct + Guardrails
 
-**LLM responsibilities**
+M3 adds a real Bedrock Claude tool-calling loop:
 
-- Interpret the research question.
-- Plan and steer the ReAct loop.
-- Rewrite retrieval queries.
-- Synthesize credit analysis.
-- Perform semantic critique.
+- tool wrapping for deterministic retrieval and verification
+- LLM query rewrite
+- LLM synthesis bounded by verified facts
+- numeric guardrail repair
+- dual critic: deterministic numeric guardrail + LLM semantic critic
+- trace entries with `reasoning_summary` and `decision_basis`, not raw chain-of-thought
 
-**Deterministic Python tool responsibilities**
+### Streamlit Analyst Workbench
 
-- Execute retrieval.
-- Rerank and return evidence.
-- Extract and verify numeric facts.
-- Calculate changes.
-- Enforce numeric guardrails.
-- Persist traces and workpaper artifacts.
+The UI provides:
 
-The LLM must not invent or calculate financial numbers. Numeric claims in the final answer must be supported by retrieved SEC filing evidence and verified deterministic outputs, or they are blocked/removed.
+- operating dashboard
+- live Research Console
+- statement source register
+- verified fact register
+- coverage diagnostics
+- final credit brief
+- workpaper audit
+- model controls / guardrail views
+- architecture walkthrough
+
+![Tesla Demo Results](docs/assets/tesla-demo-results.png)
+
+## Demo Scenario
+
+The recommended live demo is:
+
+```text
+Company: Tesla
+Ticker: TSLA
+Years: 2023, 2024, 2025
+Themes:
+- Leverage Analysis
+- Debt & Liquidity
+- Cash Flow Coverage
+```
+
+Why Tesla works well:
+
+- widely recognized issuer
+- real public-company SEC filings
+- balance sheet, income statement, and cash-flow metrics are meaningful for credit discussion
+- clean demonstration of ticker/name resolution, statement extraction, verified facts, and coverage diagnostics
+
+![Statement Source Register](docs/assets/statement-source-register.png)
 
 ## Architecture
 
@@ -109,6 +130,7 @@ User Question
 -> LLM Planner / ReAct Loop
 -> Tool Layer
 -> Hybrid Retrieval / Reranking
+-> Statement Table Extraction
 -> Numeric Verification
 -> LLM Synthesizer
 -> Numeric Guardrail
@@ -117,76 +139,86 @@ User Question
 -> Final Credit Research Brief
 ```
 
+![Architecture View](docs/assets/system-architecture.png)
+
 See [docs/architecture.md](docs/architecture.md) for a concise architecture summary.
 
-## M5 Live SEC Validation
+## Milestone Evolution
 
-M5 adds deterministic live SEC companyfacts analysis. This path does not call Bedrock and does not replace the M3 ReAct agent; it is a structured numeric analysis layer for ticker-based demos.
+| Milestone | What Changed |
+|---|---|
+| M1 | Rule-based agentic retrieval loop over Ford SEC filings |
+| M2 | Deterministic numeric verification, research memory, debt/liquidity skill, evaluation metrics |
+| M3 | Bedrock Claude ReAct tool calling, LLM query rewrite, guarded synthesis, dual critic |
+| M4 | Streamlit demo UI and minimal read-only MCP server |
+| M5 | Universal SEC company lookup and companyfacts-based structured analysis |
+| M7 | Statement-first 10-K table extraction with companyfacts cross-check/fallback |
 
-Run the live smoke check when SEC network access is available:
+## Selected Validation Results
+
+Recent live SEC checks targeted companies that exposed data-entrance problems:
+
+| Ticker | Theme | Result |
+|---|---|---|
+| NVDA | `cash_flow_coverage` | OCF, capex, dividends, and FCF resolved from statement rows / verified inputs |
+| AMZN | `cash_flow_coverage` | Capex resolved from cash flow statement; FCF calculated from verified OCF and capex |
+| HD | `cash_flow_coverage` | Fiscal-year/report-date mapping fixed; 2025 capex resolved from statement rows |
+| WMT | `leverage_analysis` | Interest expense resolved from income statement; debt components resolved from balance sheet |
+| KO | `debt_liquidity` | Balance sheet detection fixed; current debt components, long-term debt, cash, and calculated total debt resolved |
+| TSLA | multi-theme UI demo | Live statement-first workflow runs through Research Console and populates workpaper views |
+
+## Quickstart
+
+### 1. Clone and Install
 
 ```bash
-python3 scripts/run_m5_live_smoke.py --json-output examples/m5_live_smoke.json
+git clone https://github.com/<your-username>/verified-credit-research-agent.git
+cd verified-credit-research-agent
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
-Latest smoke result:
+### 2. Configure Environment
 
-| Ticker | Theme | Years | Status | Metrics | Verified Changes |
-|---|---|---:|---|---:|---|
-| AAPL | `leverage_analysis` | 2023, 2024 | success | 9 | yes |
-| TSLA | `leverage_analysis` | 2023, 2024 | success | 9 | yes |
-| NVDA | `leverage_analysis` | 2024, 2025 | success | 9 | yes |
+Copy the example environment file:
 
-See [M5_RELEASE_NOTES.md](M5_RELEASE_NOTES.md) and [examples/m5_live_smoke.json](examples/m5_live_smoke.json).
+```bash
+cp .env.example .env
+```
 
-## M3 Demo Artifacts
+Set a SEC-compliant user agent:
 
-The release demo artifacts are copied into [examples/m3_full_demo](examples/m3_full_demo):
+```bash
+SEC_USER_AGENT="Your Name your.email@example.com"
+```
 
-- [final_answer.md](examples/m3_full_demo/final_answer.md)
-- [trace_log.json](examples/m3_full_demo/trace_log.json)
-- [phase4_react_tool_trace.json](examples/m3_full_demo/phase4_react_tool_trace.json)
-- [final_answer_numeric_guardrail.json](examples/m3_full_demo/final_answer_numeric_guardrail.json)
-- [phase5_semantic_critic.json](examples/m3_full_demo/phase5_semantic_critic.json)
+Bedrock credentials are only needed for LLM workpaper / ReAct demo paths. The live deterministic Research Console can run without Bedrock.
 
-The original run artifacts remain under `runs/m3_full_demo/`.
-
-## Streamlit Demo UI
-
-M4 adds a lightweight Streamlit presentation layer over the frozen M3 release artifacts. M5 extends the same UI with an optional live SEC companyfacts mode for ticker-based numeric analysis.
-
-Run:
+### 3. Run The UI
 
 ```bash
 streamlit run streamlit_app.py
 ```
 
-The default UI mode is static artifact mode. It loads files from `examples/m3_full_demo/` and does not require Bedrock credentials or SEC network access.
+Open the Research Console and run the Tesla demo or type any SEC-covered U.S. public company name/ticker.
 
-The left sidebar provides primary module navigation. The **Research Console** module accepts a company name, alias, or ticker plus controlled risk-theme and fiscal-year selections. It resolves the input to SEC ticker, CIK, and standard company name, then retrieves structured SEC `companyfacts` data for deterministic metric extraction. Demo presets are shortcuts only; users can type any SEC EDGAR-covered public company, subject to available companyfacts and configured XBRL concept coverage. Multiple selected themes run as a grouped analysis set. This mode does not call Bedrock by default, but it does require network access to `sec.gov`.
+## Demo Walkthrough
 
-The Research Console also includes an optional **Generate detailed LLM stage workpaper** mode. When enabled, Bedrock generates stage-level analyst notes after deterministic SEC/XBRL extraction for intake/scoping, fact verification review, credit risk interpretation, and reviewer follow-up questions. The LLM workpaper is guarded: financial-number lines are checked against verified facts and unsupported numeric lines are removed before display.
+See [docs/demo_walkthrough.md](docs/demo_walkthrough.md) for the screenshot-backed walkthrough.
 
-For one selected risk theme, LLM stage workpaper mode generates a four-stage analyst workpaper. For multiple selected themes, the app runs deterministic analysis by theme and then makes one consolidated Bedrock synthesis across the verified theme results, avoiding a theme-by-stage explosion of LLM calls.
+Recommended screenshots:
 
-The UI shows:
+1. Research Console request setup
+2. Tesla multi-theme analysis results
+3. Statement source register
+4. Workpaper audit
+5. Model controls / guardrail view
+6. System architecture
 
-- Control Room operating dashboard.
-- Why this is not a normal RAG bot.
-- Optional live SEC companyfacts analysis by ticker through the Research Console.
-- Optional guarded LLM stage workpaper for a more detailed analyst-style work product.
-- Final credit research brief.
-- M3 trace metrics and Phase 4 ReAct tool ledger.
-- Numeric guardrail result and semantic critic result.
-- System architecture flow.
+## MCP Server
 
-See [docs/ui_demo.md](docs/ui_demo.md) for UI details.
-
-## M4 Minimal MCP Server
-
-M4.3 adds a real, minimal MCP server as a post-M3 integration layer. It is read-only and currently supports the Ford demo scope only.
-
-Start the server:
+M4.3 adds a real, minimal MCP server as a post-M3 integration layer. It is read-only and currently supports the Ford demo scope.
 
 ```bash
 python3 -m credit_research_agent.mcp.server
@@ -194,14 +226,28 @@ python3 -m credit_research_agent.mcp.server
 
 Exposed tools:
 
-- `hybrid_retrieve`: searches Ford SEC filing evidence through the existing M3 retrieval pipeline.
-- `verify_numeric_claim`: verifies a Ford debt/liquidity metric through the existing deterministic M3 verification path.
-
-The MCP layer does not expose the LLM synthesizer, semantic critic, full ReAct loop, or live Bedrock demo runner.
+- `hybrid_retrieve`
+- `verify_numeric_claim`
 
 See [docs/mcp.md](docs/mcp.md) for tool schemas and usage.
 
-## Local Verification
+## Repository Layout
+
+```text
+configs/                         Metric mappings, company presets, risk themes
+docs/                            Architecture, UI, MCP, demo walkthrough
+docs/assets/                     README/demo screenshots
+examples/                        Published demo artifacts and smoke outputs
+scripts/                         Demo and validation entrypoints
+skills/                          Debt/liquidity research skill
+src/credit_research_agent/       Main Python package
+tests/                           Unit and integration tests
+streamlit_app.py                 Analyst workbench UI
+```
+
+Raw local run workspaces are intentionally excluded from GitHub. Published demo artifacts live under `examples/`.
+
+## Verification
 
 Run the test suite:
 
@@ -209,16 +255,24 @@ Run the test suite:
 python3 -m unittest discover tests
 ```
 
-The M3 release package was verified with:
 Current full suite:
 
 ```text
-Ran 128 tests
+Ran 164 tests
 OK (skipped=14)
 ```
 
-The skipped tests are live SEC integration checks that require network access to `sec.gov`.
+Skipped tests are live SEC integration checks that require network access to `sec.gov`.
 
-## Disclaimer
+## Known Limitations
+
+- This is a research/demo workbench, not a production credit rating system.
+- Coverage depends on SEC filing availability and table structure.
+- Statement extraction focuses on the three primary financial statements. Some note-only disclosures require future specialized note extractors.
+- `available_liquidity` and `total_debt_service` are not forced when no safe statement/companyfacts source exists.
+- The MCP server is intentionally minimal and read-only.
+- Live SEC paths require network access and a SEC-compliant user agent.
+
+## Not Financial Advice
 
 This project is for engineering and research demonstration only. It is not financial advice, investment advice, credit rating advice, or a recommendation to buy, sell, hold, lend to, or transact in any security or issuer.

@@ -23,6 +23,7 @@ ARCHITECTURE_FLOW = """User Question
 -> LLM Planner / ReAct Loop
 -> Tool Layer
 -> Hybrid Retrieval / Reranking
+-> Statement Table Extraction
 -> Numeric Verification
 -> LLM Synthesizer
 -> Numeric Guardrail
@@ -1172,7 +1173,7 @@ def render_live_sec_analysis() -> None:
     per_theme_llm_workpaper = include_llm_workpaper and len(theme_labels) == 1
 
     analyzer = get_universal_analyzer()
-    spinner_text = f"Resolving company and fetching SEC companyfacts for {company_query}..."
+    spinner_text = f"Resolving company and fetching SEC filings for {company_query}..."
     if per_theme_llm_workpaper:
         spinner_text = f"Resolving company, fetching SEC facts, and generating guarded LLM workpaper for {company_query}..."
     if use_consolidated_workpaper:
@@ -1290,7 +1291,7 @@ def render_live_result(
     with cols[1]:
         status_card("Status", result.status, status_note)
     with cols[2]:
-        status_card("Verified facts", total_metrics, "SEC companyfacts metrics")
+        status_card("Verified facts", total_metrics, "SEC statement/companyfacts metrics")
     with cols[3]:
         status_card("Theme", theme_label, ", ".join(str(year) for year in result.years))
 
@@ -1505,7 +1506,7 @@ def render_overview(summary: Dict[str, Any]) -> None:
     with cols[0]:
         status_card("Active case", summary.get("case_label", "No active case"), "current session")
     with cols[1]:
-        status_card("Verified facts", summary.get("verified_facts", 0), "SEC companyfacts metrics")
+        status_card("Verified facts", summary.get("verified_facts", 0), "SEC statement/companyfacts metrics")
     with cols[2]:
         status_card("Guardrail", summary.get("guardrail_status", "not run"), "LLM numeric controls")
     with cols[3]:
@@ -1560,8 +1561,8 @@ def render_overview(summary: Dict[str, Any]) -> None:
   </tr>
   <tr>
     <td>Live structured data path</td>
-    <td>SEC companyfacts are retrieved and mapped through configured XBRL concepts.</td>
-    <td>M5 smoke passed for AAPL, TSLA, and NVDA.</td>
+    <td>SEC 10-K statement tables are extracted first; companyfacts are used for cross-checking and fallback.</td>
+    <td>M7 live checks covered NVDA, AMZN, HD, WMT, KO, and TSLA.</td>
   </tr>
   <tr>
     <td>Auditability</td>
@@ -1675,7 +1676,7 @@ def render_guardrails(run: Optional[Dict[str, Any]]) -> None:
     if not stage_workpapers:
         st.info(
             "No LLM stage workpaper was requested for the current run. "
-            "Deterministic numeric verification still ran through SEC companyfacts extraction."
+            "Deterministic numeric verification still ran through SEC statement extraction and companyfacts cross-checks."
         )
         coverage_rows = []
         for result in results:
@@ -1728,7 +1729,7 @@ def render_architecture() -> None:
 critique. Deterministic Python tools handle retrieval execution, calculations,
 numeric verification, guardrails, and workpaper persistence.
 
-**M5 addition:** live SEC companyfacts analysis adds a structured numeric path
+**M7 addition:** live SEC statement-first analysis adds a structured numeric path
 for reusable ticker demos. It complements, rather than replaces, the M3 ReAct
 agent.
 """

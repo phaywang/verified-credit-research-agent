@@ -1,6 +1,6 @@
 # Streamlit Demo UI
 
-The Streamlit demo UI presents the completed M3 release artifacts and, in M5, adds an optional live SEC companyfacts analysis mode.
+The Streamlit demo UI presents the completed M3 release artifacts and adds a live SEC statement-first analysis mode for ticker-level credit research.
 
 ## Run
 
@@ -32,13 +32,16 @@ It then runs the deterministic universal analyzer:
 company/ticker resolver
 -> SEC ticker, CIK, and standard company name
 -> SEC submissions metadata
+-> 10-K filing package HTML / inline XBRL
+-> statement table extraction
 -> SEC companyfacts JSON
--> configured XBRL concept mapping
--> verified metric extraction
+-> statement-first metric resolution
+-> companyfacts cross-check / fallback
+-> verified metric extraction and calculations
 -> deterministic credit brief
 ```
 
-By default, this mode does not call Bedrock. It requires live access to `www.sec.gov` and `data.sec.gov`. The preset selector only loads verified demo shortcuts; users can still type any SEC EDGAR-covered public company name or ticker, subject to available companyfacts and configured XBRL concept coverage. Multiple selected risk themes run as a grouped analysis set with one result view per theme.
+By default, this mode does not call Bedrock. It requires live access to `www.sec.gov` and `data.sec.gov`. The preset selector only loads verified demo shortcuts; users can still type any SEC EDGAR-covered public company name or ticker, subject to available filings and configured metric semantics. Multiple selected risk themes run as a grouped analysis set with one result view per theme.
 
 An optional **Generate detailed LLM stage workpaper** checkbox runs a Bedrock-backed analyst narrative after deterministic SEC/XBRL extraction. That optional mode generates stage-level workpaper notes for:
 
@@ -64,7 +67,7 @@ The default smoke checks AAPL, TSLA, and NVDA leverage analysis and verifies tha
 ## What It Shows
 
 - **Control Room:** operating dashboard, enterprise controls, system boundary, and M3 guardrail snapshot.
-- **Research Console:** ticker/theme/year workflow, saved M5 smoke results, live generated brief, optional LLM stage workpaper, fact register, and trace.
+- **Research Console:** ticker/theme/year workflow, live statement-first analysis, source register, generated brief, optional LLM stage workpaper, fact register, and trace.
 - **Workpaper Audit:** final M3 brief, trace metrics, and ReAct tool ledger.
 - **Model Controls:** numeric guardrail and semantic critic review.
 - **System Architecture:** end-to-end flow and LLM/tool boundary.

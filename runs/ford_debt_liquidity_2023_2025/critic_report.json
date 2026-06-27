@@ -1,8 +1,0 @@
-{
-  "needs_repair": false,
-  "notes": [
-    "Excluded 4 review-required low-confidence fact(s) from numeric conclusion sentences.",
-    "Deferred company_debt_maturities_next_twelve_months because no validated total-bucket XBRL mapping is implemented."
-  ],
-  "unsupported_claims": []
-}
