@@ -29,6 +29,7 @@ class MetricDefinition:
     text_patterns: List[str] = field(default_factory=list)
     unit: str = "USD"
     note: str = ""
+    formula: str = ""
 
 
 @dataclass
@@ -134,6 +135,18 @@ class ConfigLoader:
                 text_patterns=data.get("text_patterns", []),
                 unit=data.get("unit", "USD"),
                 note=data.get("note", ""),
+            )
+
+        for metric_name, data in raw.get("calculated_metrics", {}).items():
+            metrics.setdefault(
+                metric_name,
+                MetricDefinition(
+                    name=metric_name,
+                    description=data.get("description", ""),
+                    unit=data.get("unit", "USD"),
+                    formula=data.get("formula", ""),
+                    note="Calculated metric; derived only when all inputs are verified.",
+                ),
             )
 
         self._metrics_cache = metrics

@@ -57,6 +57,7 @@ class UniversalCreditAnalyzer:
         self.config_loader = ConfigLoader()
         self.task_generator = TaskGenerator()
         self.brief_generator = BriefGenerator()
+        self._last_metric_coverage: Dict[str, Any] = {}
 
     def analyze(
         self,
@@ -127,6 +128,7 @@ class UniversalCreditAnalyzer:
                 "metrics_extracted": sum(
                     len(m) for m in metrics_by_year.values()
                 ),
+                "metric_coverage": self._last_metric_coverage,
             })
 
             # Step 4: Generate deterministic verified brief
@@ -295,13 +297,23 @@ class UniversalCreditAnalyzer:
         theme_config = self.config_loader.get_risk_theme(risk_theme)
         metric_names = self._metric_names_for_theme(theme_config)
         metric_selectors = self._metric_selectors(metric_names)
+        self._last_metric_coverage = {
+            "requested_metrics": metric_names,
+            "direct_xbrl_metrics": sorted(metric_selectors.keys()),
+            "calculated_metrics": [],
+            "unavailable_metrics": [],
+        }
 
         for year in years:
             logger.info(f"Extracting metrics for {year}...")
             extracted = self.parser.extract_metrics_from_companyfacts(
                 companyfacts, metric_selectors, year
             )
-            metrics_by_year[year] = list(extracted.values())
+            metrics_by_year[year] = self._with_calculated_metrics(
+                year,
+                extracted,
+                metric_names,
+            )
 
         return metrics_by_year
 
@@ -319,7 +331,7 @@ class UniversalCreditAnalyzer:
         for metric_name in metric_names:
             metric_config = metrics_config.get(metric_name)
             if metric_config is None:
-                logger.warning("No metric mapping configured for %s", metric_name)
+                logger.info("Metric %s is not configured for extraction", metric_name)
                 continue
 
             concepts = []
@@ -332,6 +344,48 @@ class UniversalCreditAnalyzer:
                 selectors[metric_name] = concepts
 
         return selectors
+
+    def _with_calculated_metrics(
+        self,
+        year: int,
+        extracted: Dict[str, MetricValue],
+        requested_metrics: List[str],
+    ) -> List[MetricValue]:
+        """Append deterministic derived metrics when source inputs are verified."""
+        metrics = dict(extracted)
+
+        if "free_cash_flow" in requested_metrics and "free_cash_flow" not in metrics:
+            operating_cash_flow = metrics.get("operating_cash_flow")
+            capital_expenditures = metrics.get("capital_expenditures")
+            if (
+                operating_cash_flow is not None
+                and operating_cash_flow.value is not None
+                and capital_expenditures is not None
+                and capital_expenditures.value is not None
+            ):
+                capex_outflow = abs(capital_expenditures.value)
+                metrics["free_cash_flow"] = MetricValue(
+                    metric_name="free_cash_flow",
+                    value=operating_cash_flow.value - capex_outflow,
+                    unit=operating_cash_flow.unit,
+                    fiscal_year=year,
+                    xbrl_concept=(
+                        f"calculated:{operating_cash_flow.xbrl_concept}"
+                        f"-abs({capital_expenditures.xbrl_concept})"
+                    ),
+                    source="deterministic_calculation",
+                )
+                calculated = self._last_metric_coverage.setdefault("calculated_metrics", [])
+                if "free_cash_flow" not in calculated:
+                    calculated.append("free_cash_flow")
+
+        available = set(metrics)
+        unavailable = self._last_metric_coverage.setdefault("unavailable_metrics", [])
+        for metric_name in requested_metrics:
+            if metric_name not in available and metric_name not in unavailable:
+                unavailable.append(metric_name)
+
+        return list(metrics.values())
 
     def _generate_brief(
         self,

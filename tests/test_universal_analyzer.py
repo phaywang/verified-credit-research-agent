@@ -147,6 +147,111 @@ class UniversalAnalyzerTest(unittest.TestCase):
         self.assertIn(2023, metrics)
         self.assertGreater(len(metrics[2023]), 0)
 
+    def test_extracts_calculated_free_cash_flow_without_missing_mapping_warning(self):
+        """Calculated metrics should be derived instead of reported as unmapped."""
+        companyfacts = {
+            "facts": {
+                "us-gaap": {
+                    "NetCashProvidedByUsedInOperatingActivities": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2025,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2026-01-30",
+                                    "end": "2025-09-27",
+                                    "val": 111482000000,
+                                }
+                            ]
+                        }
+                    },
+                    "PaymentForCapitalExpenditures": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "fy": 2025,
+                                    "fp": "FY",
+                                    "form": "10-K",
+                                    "filed": "2026-01-30",
+                                    "end": "2025-09-27",
+                                    "val": 12715000000,
+                                }
+                            ]
+                        }
+                    },
+                }
+            }
+        }
+
+        self.analyzer.config_loader = MagicMock()
+        self.analyzer.config_loader.get_risk_theme.return_value = {
+            "metrics": ["operating_cash_flow", "capital_expenditures", "free_cash_flow"],
+        }
+        self.analyzer.config_loader.load_metrics.return_value = {
+            "operating_cash_flow": MetricDefinition(
+                name="operating_cash_flow",
+                description="Operating cash flow",
+                xbrl_selectors=[
+                    {"concept": "NetCashProvidedByUsedInOperatingActivities"}
+                ],
+            ),
+            "capital_expenditures": MetricDefinition(
+                name="capital_expenditures",
+                description="Capital expenditures",
+                xbrl_selectors=[{"concept": "PaymentForCapitalExpenditures"}],
+            ),
+            "free_cash_flow": MetricDefinition(
+                name="free_cash_flow",
+                description="Free cash flow",
+                formula="operating_cash_flow - capital_expenditures",
+            ),
+        }
+
+        metrics = self.analyzer._extract_metrics(
+            companyfacts, "cash_flow_coverage", [2025]
+        )
+
+        by_name = {metric.metric_name: metric for metric in metrics[2025]}
+        self.assertIn("free_cash_flow", by_name)
+        self.assertEqual(by_name["free_cash_flow"].value, 98767.0)
+        self.assertEqual(by_name["free_cash_flow"].source, "deterministic_calculation")
+        self.assertIn("free_cash_flow", self.analyzer._last_metric_coverage["calculated_metrics"])
+        self.assertNotIn("free_cash_flow", self.analyzer._last_metric_coverage["unavailable_metrics"])
+
+    def test_records_unavailable_metric_in_coverage(self):
+        """Unsupported universal metrics should be structured coverage limits."""
+        self.analyzer.config_loader = MagicMock()
+        self.analyzer.config_loader.get_risk_theme.return_value = {
+            "metrics": ["operating_cash_flow", "total_debt_service"],
+        }
+        self.analyzer.config_loader.load_metrics.return_value = {
+            "operating_cash_flow": MetricDefinition(
+                name="operating_cash_flow",
+                description="Operating cash flow",
+                xbrl_selectors=[
+                    {"concept": "NetCashProvidedByUsedInOperatingActivities"}
+                ],
+            ),
+            "total_debt_service": MetricDefinition(
+                name="total_debt_service",
+                description="Debt service",
+                note="Issuer-specific mapping required.",
+            ),
+        }
+
+        metrics = self.analyzer._extract_metrics(
+            {"facts": {"us-gaap": {}}},
+            "cash_flow_coverage",
+            [2025],
+        )
+
+        self.assertEqual(metrics[2025], [])
+        self.assertIn(
+            "total_debt_service",
+            self.analyzer._last_metric_coverage["unavailable_metrics"],
+        )
+
     def test_analyze_error_handling(self):
         """Test analyze method error handling."""
         self.analyzer.lookup = MagicMock()

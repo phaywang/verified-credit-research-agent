@@ -968,6 +968,15 @@ def render_live_result(
         if result.brief:
             st.info("A resolution notice was generated in the Brief tab. No financial analysis was run.")
 
+    coverage = metric_coverage(result)
+    unavailable_metrics = coverage.get("unavailable_metrics", [])
+    if unavailable_metrics:
+        st.warning(
+            "Coverage limitation: the selected theme requested metric(s) that are "
+            f"not available from the current verified SEC companyfacts path: "
+            f"{', '.join(unavailable_metrics)}."
+        )
+
     changes = change_rows(result)
     if changes:
         st.subheader("Verified change register")
@@ -996,6 +1005,16 @@ def render_live_result(
         tab_index = 3
     with result_tabs[tab_index]:
         st.json(result.trace)
+
+
+def metric_coverage(result: AnalysisResult) -> Dict[str, Any]:
+    """Return structured metric coverage details from the analysis trace."""
+    for item in result.trace:
+        if item.get("step") == "extract_companyfacts":
+            coverage = item.get("metric_coverage")
+            if isinstance(coverage, dict):
+                return coverage
+    return {}
 
 
 def render_stage_workpaper(stage_workpaper: List[Dict[str, Any]]) -> None:

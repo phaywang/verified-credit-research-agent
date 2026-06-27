@@ -119,6 +119,27 @@ metrics:
       - "investing.*activities"
     unit: "USD"
 
+  dividend_payments:
+    description: "Cash dividends paid to shareholders"
+    xbrl_selectors:
+      - concept: "PaymentsOfDividends"
+      - concept: "PaymentsOfDividendsCommonStock"
+      - concept: "PaymentsOfDividendsAndDividendEquivalentsOnCommonStockAndRestrictedStockUnits"
+    text_patterns:
+      - "dividends.*paid"
+      - "payments.*dividends"
+    unit: "USD"
+
+  total_debt_service:
+    description: "Total cash debt service, including principal and interest where available"
+    xbrl_selectors: []
+    text_patterns:
+      - "debt service"
+      - "repayments.*debt"
+      - "interest.*paid"
+    unit: "USD"
+    note: "No universal SEC companyfacts concept; require issuer-specific mapping before using in conclusions."
+
   # Balance sheet metrics
   current_assets:
     description: "Current assets"
