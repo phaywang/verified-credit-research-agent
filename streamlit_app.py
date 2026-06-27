@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 import streamlit as st
 
@@ -13,8 +13,8 @@ from credit_research_agent.universal_analyzer import AnalysisResult, UniversalCr
 
 
 ROOT = Path(__file__).resolve().parent
-ARTIFACT_DIR = ROOT / "examples" / "m3_full_demo"
 M5_SMOKE_PATH = ROOT / "examples" / "m5_live_smoke.json"
+LIVE_RUN_KEY = "current_live_analysis_run"
 
 ARCHITECTURE_FLOW = """User Question
 -> Task Spec Parser
@@ -461,40 +461,6 @@ def inject_css() -> None:
     )
 
 
-def read_text(name: str) -> str:
-    return (ARTIFACT_DIR / name).read_text(encoding="utf-8")
-
-
-def read_json(name: str) -> Dict[str, Any]:
-    return json.loads((ARTIFACT_DIR / name).read_text(encoding="utf-8"))
-
-
-def artifact_available() -> bool:
-    required = [
-        "final_answer.md",
-        "trace_log.json",
-        "phase4_react_tool_trace.json",
-        "final_answer_numeric_guardrail.json",
-        "phase5_semantic_critic.json",
-    ]
-    return all((ARTIFACT_DIR / name).exists() for name in required)
-
-
-def short_json(value: Any, max_chars: int = 220) -> str:
-    text = json.dumps(value, sort_keys=True, default=str)
-    if len(text) <= max_chars:
-        return text
-    return text[: max_chars - 3] + "..."
-
-
-def tool_events(trace: Dict[str, Any]) -> List[Dict[str, Any]]:
-    return [
-        event
-        for event in trace.get("events", [])
-        if event.get("kind") == "tool_call"
-    ]
-
-
 def status_card(label: str, value: Any, note: str = "") -> None:
     st.markdown(
         f"""
@@ -508,7 +474,62 @@ def status_card(label: str, value: Any, note: str = "") -> None:
     )
 
 
-def render_topbar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> None:
+def empty_run_summary() -> Dict[str, Any]:
+    """Return dashboard values before a user runs a case."""
+    return {
+        "case_label": "No active case",
+        "run_status": "empty",
+        "guardrail_status": "not run",
+        "blocked_claims": "n/a",
+        "semantic_status": "not run",
+        "tool_calls": "n/a",
+        "verified_facts": 0,
+        "themes": [],
+        "years": [],
+    }
+
+
+def current_run() -> Optional[Dict[str, Any]]:
+    """Read the active live analysis from Streamlit session state."""
+    run = st.session_state.get(LIVE_RUN_KEY)
+    return run if isinstance(run, dict) else None
+
+
+def summarize_run(run: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Summarize the active run for top-level dashboard controls."""
+    if not run:
+        return empty_run_summary()
+
+    results: List[AnalysisResult] = run.get("results", [])
+    theme_labels: List[str] = run.get("theme_labels", [])
+    consolidated_workpaper = run.get("consolidated_workpaper") or []
+    stage_workpapers = list(consolidated_workpaper)
+    for result in results:
+        stage_workpapers.extend(result.stage_workpaper or [])
+
+    first_result = results[0] if results else None
+    statuses = [result.status for result in results]
+    blocked_claims = sum(len(stage.get("blocked_lines", [])) for stage in stage_workpapers)
+    guardrail_status = "not run"
+    if stage_workpapers:
+        guardrail_status = "block" if blocked_claims else "pass"
+
+    return {
+        "case_label": run.get("case_label", "Live analysis"),
+        "run_status": "success" if statuses and all(status == "success" for status in statuses) else "review",
+        "guardrail_status": guardrail_status,
+        "blocked_claims": blocked_claims if stage_workpapers else "n/a",
+        "semantic_status": "not run",
+        "tool_calls": "SEC companyfacts",
+        "verified_facts": sum(len(items) for result in results for items in result.metrics.values()),
+        "themes": theme_labels,
+        "years": first_result.years if first_result else [],
+        "company": first_result.company if first_result else "",
+        "ticker": first_result.ticker if first_result else "",
+    }
+
+
+def render_topbar(summary: Dict[str, Any]) -> None:
     st.markdown(
         f"""
 <div class="topbar">
@@ -521,9 +542,9 @@ def render_topbar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> N
     </div>
   </div>
   <div class="badge-row">
-    <span class="badge good">Guardrail: {final_metrics.get("final_answer_numeric_guardrail", "n/a")}</span>
-    <span class="badge">ReAct calls: {final_metrics.get("phase4_tool_call_count", "n/a")}</span>
-    <span class="badge">Blocked claims: {guardrail.get("blocked_count", "n/a")}</span>
+    <span class="badge good">Guardrail: {summary.get("guardrail_status", "not run")}</span>
+    <span class="badge">Run: {summary.get("run_status", "empty")}</span>
+    <span class="badge">Blocked claims: {summary.get("blocked_claims", "n/a")}</span>
     <span class="badge">SEC companyfacts</span>
   </div>
 </div>
@@ -541,9 +562,9 @@ def render_topbar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> N
   </div>
   <div class="right">
     <span class="command-label">Controls</span>
-    <span class="control-chip ok">Numeric guardrail {final_metrics.get("final_answer_numeric_guardrail", "n/a")}</span>
-    <span class="control-chip ok">Semantic critic {final_metrics.get("phase5_semantic_approved", "n/a")}</span>
-    <span class="control-chip">{guardrail.get("blocked_count", "n/a")} blocked claims</span>
+    <span class="control-chip ok">Numeric guardrail {summary.get("guardrail_status", "not run")}</span>
+    <span class="control-chip ok">Semantic critic {summary.get("semantic_status", "not run")}</span>
+    <span class="control-chip">{summary.get("blocked_claims", "n/a")} blocked claims</span>
   </div>
 </div>
 """,
@@ -565,7 +586,7 @@ PAGE_META = {
     "Workpaper Audit": {
         "code": "03",
         "nav": "03  Workpaper Audit",
-        "description": "Frozen M3 final brief, trace metrics, and ReAct tool ledger.",
+        "description": "Current case brief, fact register, trace, and guarded workpaper.",
     },
     "Model Controls": {
         "code": "04",
@@ -580,7 +601,7 @@ PAGE_META = {
 }
 
 
-def render_sidebar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> str:
+def render_sidebar(summary: Dict[str, Any]) -> str:
     with st.sidebar:
         st.markdown(
             """
@@ -600,10 +621,10 @@ def render_sidebar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> 
         )
         st.markdown("---")
         st.markdown("**Control Status**")
-        st.markdown(f"- Numeric guardrail: `{final_metrics.get('final_answer_numeric_guardrail', 'n/a')}`")
-        st.markdown(f"- Blocked claims: `{guardrail.get('blocked_count', 'n/a')}`")
-        st.markdown(f"- Semantic critic: `{final_metrics.get('phase5_semantic_approved', 'n/a')}`")
-        st.markdown(f"- Tool calls: `{final_metrics.get('phase4_tool_call_count', 'n/a')}`")
+        st.markdown(f"- Active case: `{summary.get('case_label', 'No active case')}`")
+        st.markdown(f"- Numeric guardrail: `{summary.get('guardrail_status', 'not run')}`")
+        st.markdown(f"- Blocked claims: `{summary.get('blocked_claims', 'n/a')}`")
+        st.markdown(f"- Verified facts: `{summary.get('verified_facts', 0)}`")
         st.markdown("---")
         st.markdown("**Boundary**")
         st.markdown(
@@ -629,32 +650,17 @@ def render_module_header(page: str) -> None:
     )
 
 
-def render_metric_row(metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> None:
+def render_metric_row(summary: Dict[str, Any]) -> None:
     cols = st.columns(4)
-    cols[0].metric("Phase 2 guardrail", str(metrics.get("phase2_numeric_guardrail", "n/a")))
-    cols[1].metric("Phase 2 repaired", str(metrics.get("phase2_repaired", "n/a")))
-    cols[2].metric("LLM rewrite fallback", str(metrics.get("phase3_fallback_used", "n/a")))
-    cols[3].metric("ReAct tool calls", str(metrics.get("phase4_tool_call_count", "n/a")))
+    cols[0].metric("Run status", str(summary.get("run_status", "empty")))
+    cols[1].metric("Verified facts", str(summary.get("verified_facts", 0)))
+    cols[2].metric("Themes", str(len(summary.get("themes", []))))
+    cols[3].metric("Years", ", ".join(str(year) for year in summary.get("years", [])) or "n/a")
 
     cols = st.columns(3)
-    cols[0].metric("Final numeric guardrail", str(metrics.get("final_answer_numeric_guardrail", "n/a")))
-    cols[1].metric("Blocked claims", str(guardrail.get("blocked_count", "n/a")))
-    cols[2].metric("Semantic approved", str(metrics.get("phase5_semantic_approved", "n/a")))
-
-
-def render_tool_timeline(events: Iterable[Dict[str, Any]]) -> None:
-    rows = []
-    for index, event in enumerate(events, start=1):
-        rows.append(
-            {
-                "step": index,
-                "tool": event.get("tool_name", ""),
-                "input": short_json(event.get("tool_input", {}), 160),
-                "output": short_json(event.get("tool_result", {}), 220),
-                "status": "completed",
-            }
-        )
-    st.dataframe(rows, width="stretch", hide_index=True)
+    cols[0].metric("Numeric guardrail", str(summary.get("guardrail_status", "not run")))
+    cols[1].metric("Blocked claims", str(summary.get("blocked_claims", "n/a")))
+    cols[2].metric("Semantic review", str(summary.get("semantic_status", "not run")))
 
 
 def metric_rows(result: AnalysisResult) -> List[Dict[str, Any]]:
@@ -834,7 +840,17 @@ def render_live_sec_analysis() -> None:
         )
 
     if not submitted:
-        render_m5_smoke_summary()
+        run = current_run()
+        if run:
+            st.divider()
+            st.subheader("Current analysis result")
+            render_live_results(
+                run.get("results", []),
+                run.get("theme_labels", []),
+                run.get("consolidated_workpaper") or [],
+            )
+        else:
+            render_m5_smoke_summary()
         return
 
     if not company_query:
@@ -872,7 +888,16 @@ def render_live_sec_analysis() -> None:
             else []
         )
 
-    render_live_results(results, theme_labels, consolidated_workpaper)
+    st.session_state[LIVE_RUN_KEY] = {
+        "case_label": f"{company_query} | {', '.join(theme_labels)} | {', '.join(str(year) for year in years)}",
+        "company_query": company_query,
+        "theme_labels": theme_labels,
+        "years": years,
+        "include_llm_workpaper": include_llm_workpaper,
+        "results": results,
+        "consolidated_workpaper": consolidated_workpaper,
+    }
+    st.rerun()
 
 
 def generate_consolidated_workpaper(
@@ -1071,19 +1096,19 @@ def render_m5_smoke_summary() -> None:
         st.dataframe(rows, width="stretch", hide_index=True)
 
 
-def render_overview(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> None:
+def render_overview(summary: Dict[str, Any]) -> None:
     st.markdown('<div class="section-kicker">Control room</div>', unsafe_allow_html=True)
     st.subheader("Credit research operating dashboard")
 
     cols = st.columns(4)
     with cols[0]:
-        status_card("Live SEC mode", "Ready", "companyfacts path")
+        status_card("Active case", summary.get("case_label", "No active case"), "current session")
     with cols[1]:
-        status_card("M3 ReAct calls", final_metrics.get("phase4_tool_call_count", "n/a"), "audited tool chain")
+        status_card("Verified facts", summary.get("verified_facts", 0), "SEC companyfacts metrics")
     with cols[2]:
-        status_card("Final guardrail", final_metrics.get("final_answer_numeric_guardrail", "n/a"), "unsupported numbers blocked")
+        status_card("Guardrail", summary.get("guardrail_status", "not run"), "LLM numeric controls")
     with cols[3]:
-        status_card("Smoke validation", "Pass", "AAPL, TSLA, NVDA")
+        status_card("Run status", summary.get("run_status", "empty"), summary.get("ticker", "Run a case to populate"))
 
     panel_cols = st.columns(3, gap="large")
     with panel_cols[0]:
@@ -1125,12 +1150,12 @@ def render_overview(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) ->
   <tr>
     <td>Agentic research workflow</td>
     <td>LLM plans, rewrites queries, calls approved tools, and records decision summaries.</td>
-    <td>M3 Bedrock ReAct run with 9 deterministic tool calls.</td>
+    <td>Populated after a Research Console run; frozen M3 artifacts remain in examples for package review.</td>
   </tr>
   <tr>
     <td>Financial number discipline</td>
     <td>Numeric claims require deterministic verification or are blocked before final output.</td>
-    <td>Phase 2 guardrail blocked an unsupported draft, repair passed final guardrail.</td>
+    <td>Current live run shows verified facts, calculated metrics, and unavailable metric coverage.</td>
   </tr>
   <tr>
     <td>Live structured data path</td>
@@ -1140,7 +1165,7 @@ def render_overview(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) ->
   <tr>
     <td>Auditability</td>
     <td>Final answer, tool trace, critic report, and guardrail result are inspectable artifacts.</td>
-    <td>Committed M3 workpaper package loaded from examples/m3_full_demo.</td>
+    <td>Workpaper Audit updates from the current Streamlit session run.</td>
   </tr>
 </table>
 """,
@@ -1179,59 +1204,117 @@ def render_overview(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) ->
             unsafe_allow_html=True,
         )
 
-    st.markdown("### M3 guardrail snapshot")
-    render_metric_row(final_metrics, guardrail)
+    st.markdown("### Current run controls")
+    render_metric_row(summary)
 
 
-def render_workpaper(final_answer: str, trace_log: Dict[str, Any], tool_trace: Dict[str, Any]) -> None:
+def render_empty_current_run(message: str = "Run an analysis from Research Console to populate this page.") -> None:
+    """Render an empty state for pages that depend on a live case."""
+    st.info(message)
+    st.markdown(
+        """
+<div class="panel">
+  <h3>No active workpaper</h3>
+  <p class="small-muted">
+    The workbench starts empty by design. Select a company, risk theme, and fiscal
+    years in Research Console, then run analysis. This page will update to that
+    case's brief, fact register, trace, and guarded LLM notes.
+  </p>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_workpaper(run: Optional[Dict[str, Any]]) -> None:
     st.markdown('<div class="section-kicker">Run audit</div>', unsafe_allow_html=True)
-    st.subheader("Frozen M3 workpaper package")
-    brief_tab, trace_tab, tools_tab = st.tabs(["Final Brief", "Trace Metrics", "Tool Timeline"])
-    with brief_tab:
-        st.markdown(final_answer)
-    with trace_tab:
-        st.subheader("Control metrics")
-        final_metrics = trace_log.get("final_metrics", {})
-        cols = st.columns(4)
-        cols[0].metric("Loop phase", "M3")
-        cols[1].metric("Tool calls", str(final_metrics.get("phase4_tool_call_count", "n/a")))
-        cols[2].metric("Repair run", str(final_metrics.get("phase2_repaired", "n/a")))
-        cols[3].metric("Semantic approved", str(final_metrics.get("phase5_semantic_approved", "n/a")))
-        with st.expander("Trace JSON"):
-            st.json(trace_log)
-    with tools_tab:
-        st.subheader("Phase 4 ReAct tool ledger")
-        st.caption(f"Tool call count: {tool_trace.get('tool_call_count', 'n/a')}")
-        render_tool_timeline(tool_events(tool_trace))
-        with st.expander("Raw tool trace JSON"):
-            st.json(tool_trace)
+    st.subheader("Current case workpaper")
+    if not run:
+        render_empty_current_run()
+        return
+
+    results: List[AnalysisResult] = run.get("results", [])
+    theme_labels: List[str] = run.get("theme_labels", [])
+    consolidated_workpaper = run.get("consolidated_workpaper") or []
+    summary = summarize_run(run)
+
+    cols = st.columns(4)
+    cols[0].metric("Company", f"{summary.get('company', '')} ({summary.get('ticker', '')})")
+    cols[1].metric("Themes", str(len(theme_labels)))
+    cols[2].metric("Verified facts", str(summary.get("verified_facts", 0)))
+    cols[3].metric("Guardrail", str(summary.get("guardrail_status", "not run")))
+
+    if consolidated_workpaper:
+        st.subheader("Consolidated LLM workpaper")
+        render_stage_workpaper(consolidated_workpaper)
+
+    if not results:
+        st.warning("No result objects are available for the current run.")
+        return
+
+    tabs = st.tabs(theme_labels)
+    for tab, result, theme_label in zip(tabs, results, theme_labels):
+        with tab:
+            render_live_result(result, theme_label, include_divider=False)
 
 
-def render_guardrails(guardrail: Dict[str, Any], semantic_critic: Dict[str, Any]) -> None:
+def render_guardrails(run: Optional[Dict[str, Any]]) -> None:
     st.markdown('<div class="section-kicker">Model controls</div>', unsafe_allow_html=True)
-    st.subheader("Numeric and semantic review")
+    st.subheader("Current case numeric and semantic review")
+    if not run:
+        render_empty_current_run("Run a case to inspect numeric guardrail and LLM-stage controls.")
+        return
+
+    results: List[AnalysisResult] = run.get("results", [])
+    consolidated_workpaper = run.get("consolidated_workpaper") or []
+    stage_workpapers = list(consolidated_workpaper)
+    for result in results:
+        stage_workpapers.extend(result.stage_workpaper or [])
+
+    if not stage_workpapers:
+        st.info(
+            "No LLM stage workpaper was requested for the current run. "
+            "Deterministic numeric verification still ran through SEC companyfacts extraction."
+        )
+        coverage_rows = []
+        for result in results:
+            coverage = metric_coverage(result)
+            coverage_rows.append(
+                {
+                    "theme": result.theme,
+                    "requested_metrics": ", ".join(coverage.get("requested_metrics", [])),
+                    "direct_xbrl_metrics": ", ".join(coverage.get("direct_xbrl_metrics", [])),
+                    "calculated_metrics": ", ".join(coverage.get("calculated_metrics", [])),
+                    "unavailable_metrics": ", ".join(coverage.get("unavailable_metrics", [])),
+                }
+            )
+        if coverage_rows:
+            st.subheader("Metric coverage controls")
+            st.dataframe(coverage_rows, width="stretch", hide_index=True)
+        return
+
     left, right = st.columns(2, gap="large")
     with left:
         st.subheader("Numeric guardrail")
-        cols = st.columns(3)
-        cols[0].metric("Severity", str(guardrail.get("severity", "n/a")))
-        cols[1].metric("Blocked claims", str(guardrail.get("blocked_count", "n/a")))
-        cols[2].metric("Numbers checked", str(guardrail.get("financial_numbers_checked", "n/a")))
-        st.write(guardrail.get("reasoning_summary", ""))
-        with st.expander("Guardrail JSON"):
-            st.json(guardrail)
+        summary_rows = [
+            {
+                "stage": stage.get("stage"),
+                "status": stage.get("status"),
+                "guardrail_status": stage.get("guardrail_status"),
+                "blocked_lines": len(stage.get("blocked_lines", [])),
+            }
+            for stage in stage_workpapers
+        ]
+        st.dataframe(summary_rows, width="stretch", hide_index=True)
     with right:
         st.subheader("Semantic critic")
-        st.metric("Approved", str(semantic_critic.get("approved", "n/a")))
-        st.write(semantic_critic.get("reasoning_summary", ""))
-        issues = semantic_critic.get("issues", [])
-        if issues:
-            for issue in issues:
-                st.write(f"- {issue}")
-        else:
-            st.write("No semantic critic issues reported.")
-        with st.expander("Semantic critic JSON"):
-            st.json(semantic_critic)
+        st.info(
+            "Live companyfacts mode uses deterministic numeric controls and optional "
+            "LLM-stage numeric guardrails. The M3 semantic critic applies to the frozen "
+            "ReAct package, not to this live lightweight run."
+        )
+        with st.expander("Stage workpaper JSON"):
+            st.json(stage_workpapers)
 
 
 def render_architecture() -> None:
@@ -1259,29 +1342,21 @@ def main() -> None:
     )
     inject_css()
 
-    if not artifact_available():
-        st.error(f"Static demo artifacts were not found at {ARTIFACT_DIR}.")
-        st.stop()
+    run = current_run()
+    summary = summarize_run(run)
 
-    final_answer = read_text("final_answer.md")
-    trace_log = read_json("trace_log.json")
-    tool_trace = read_json("phase4_react_tool_trace.json")
-    guardrail = read_json("final_answer_numeric_guardrail.json")
-    semantic_critic = read_json("phase5_semantic_critic.json")
-    final_metrics = trace_log.get("final_metrics", {})
-
-    selected_page = render_sidebar(final_metrics, guardrail)
-    render_topbar(final_metrics, guardrail)
+    selected_page = render_sidebar(summary)
+    render_topbar(summary)
     render_module_header(selected_page)
 
     if selected_page == "Control Room":
-        render_overview(final_metrics, guardrail)
+        render_overview(summary)
     elif selected_page == "Research Console":
         render_live_sec_analysis()
     elif selected_page == "Workpaper Audit":
-        render_workpaper(final_answer, trace_log, tool_trace)
+        render_workpaper(current_run())
     elif selected_page == "Model Controls":
-        render_guardrails(guardrail, semantic_critic)
+        render_guardrails(current_run())
     elif selected_page == "System Architecture":
         render_architecture()
 
