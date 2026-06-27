@@ -749,7 +749,8 @@ def render_live_sec_analysis() -> None:
                     value=False,
                     help=(
                         "Optional Bedrock mode. The LLM writes stage-level analyst notes "
-                        "after deterministic SEC/XBRL facts are extracted; numeric lines are guarded."
+                        "after deterministic SEC/XBRL facts are extracted; numeric lines are guarded. "
+                        "Use this with one selected risk theme."
                     ),
                 )
                 submitted = st.form_submit_button("Run Analysis", type="primary", width="stretch")
@@ -792,10 +793,15 @@ def render_live_sec_analysis() -> None:
         return
     years = sorted(years)
     if include_llm_workpaper and len(theme_labels) > 1:
-        st.warning(
-            "Detailed LLM stage workpaper is enabled for multiple themes. "
-            "This may take longer and may create multiple Bedrock calls."
+        st.error(
+            "Detailed LLM stage workpaper is limited to one risk theme per run. "
+            "Select a single theme, or uncheck the LLM workpaper option to run multiple themes deterministically."
         )
+        st.info(
+            "Recommended workflow: run multiple themes first without LLM workpaper, "
+            "then rerun the most important theme with detailed LLM stage workpaper enabled."
+        )
+        return
 
     analyzer = get_universal_analyzer()
     spinner_text = f"Resolving company and fetching SEC companyfacts for {company_query}..."

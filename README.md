@@ -167,6 +167,8 @@ The left sidebar provides primary module navigation. The **Research Console** mo
 
 The Research Console also includes an optional **Generate detailed LLM stage workpaper** mode. When enabled, Bedrock generates stage-level analyst notes after deterministic SEC/XBRL extraction for intake/scoping, fact verification review, credit risk interpretation, and reviewer follow-up questions. The LLM workpaper is guarded: financial-number lines are checked against verified facts and unsupported numeric lines are removed before display.
 
+The LLM stage workpaper mode is limited to one risk theme per run. Multi-theme runs remain deterministic and are intended for quick screening; detailed LLM notes should be generated after selecting the priority theme.
+
 The UI shows:
 
 - Control Room operating dashboard.
