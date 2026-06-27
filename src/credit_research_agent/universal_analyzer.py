@@ -92,10 +92,12 @@ class UniversalCreditAnalyzer:
 
             company_info = self._lookup_company(ticker)
             result.company = company_info.name
+            result.ticker = company_info.ticker or result.ticker
             result.trace.append({
                 "step": "lookup_company",
                 "status": "success",
                 "company": company_info.name,
+                "ticker": company_info.ticker,
                 "cik": company_info.cik,
             })
 
@@ -200,11 +202,14 @@ class UniversalCreditAnalyzer:
 
         return result
 
-    def _lookup_company(self, ticker: str) -> CompanyInfo:
-        """Lookup company by ticker."""
-        cik = self.lookup.get_cik_by_ticker(ticker)
-        company_info = self.lookup.get_company_info(cik)
-        return company_info
+    def _lookup_company(self, company_or_ticker: str) -> CompanyInfo:
+        """Lookup company by ticker, company name, or common alias."""
+        if hasattr(self.lookup, "resolve_company_query"):
+            resolved = self.lookup.resolve_company_query(company_or_ticker)
+            if isinstance(resolved, CompanyInfo):
+                return resolved
+        cik = self.lookup.get_cik_by_ticker(company_or_ticker)
+        return self.lookup.get_company_info(cik)
 
     def _fetch_10k_data(
         self, cik: str, years: List[int]

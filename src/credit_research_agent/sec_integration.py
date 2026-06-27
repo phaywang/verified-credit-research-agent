@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -124,6 +125,52 @@ class FilingNotFoundError(Exception):
     pass
 
 
+_COMPANY_ALIASES = {
+    "google": "alphabet",
+    "google llc": "alphabet",
+    "jp morgan": "jpmorgan chase",
+    "j p morgan": "jpmorgan chase",
+    "jpmorgan": "jpmorgan chase",
+    "facebook": "meta platforms",
+    "meta": "meta platforms",
+}
+
+
+def _normalize_company_query(value: str) -> str:
+    """Normalize user company input and SEC legal titles for matching."""
+    text = value.lower().replace("&", " and ")
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    tokens = [
+        token for token in text.split()
+        if token not in {
+            "inc",
+            "incorporated",
+            "corp",
+            "corporation",
+            "co",
+            "company",
+            "ltd",
+            "plc",
+            "class",
+            "common",
+            "stock",
+            "the",
+        }
+    ]
+    return " ".join(tokens).strip()
+
+
+def _ambiguous_company_message(query: str, matches: List[Dict]) -> str:
+    examples = ", ".join(
+        f"{entry.get('ticker')} ({entry.get('title')})"
+        for entry in matches[:5]
+    )
+    return (
+        f"Ambiguous company query '{query}'. Matching SEC issuers include: "
+        f"{examples}. Try a ticker or more complete legal name."
+    )
+
+
 class SECCompanyLookup:
     """Query SEC EDGAR for company information."""
 
@@ -166,6 +213,52 @@ class SECCompanyLookup:
         raise CompanyNotFoundError(
             f"Ticker '{ticker}' not found in SEC EDGAR. "
             f"Check that it's a valid US stock ticker."
+        )
+
+    def resolve_company_query(self, query: str) -> CompanyInfo:
+        """Resolve a ticker, company name, or alias to SEC company metadata."""
+        normalized_query = _normalize_company_query(query)
+        if not normalized_query:
+            raise CompanyNotFoundError("Company or ticker input is required.")
+
+        tickers = self._load_tickers_json()
+
+        # Exact ticker match wins over company-name matching.
+        query_upper = query.strip().upper()
+        for entry in tickers.values():
+            if entry.get("ticker", "").upper() == query_upper:
+                return self.get_company_info(str(entry.get("cik_str")).zfill(10))
+
+        alias_query = _COMPANY_ALIASES.get(normalized_query, normalized_query)
+
+        exact_matches = [
+            entry for entry in tickers.values()
+            if _normalize_company_query(entry.get("title", "")) == alias_query
+        ]
+        if len(exact_matches) == 1:
+            return self.get_company_info(str(exact_matches[0].get("cik_str")).zfill(10))
+
+        prefix_matches = [
+            entry for entry in tickers.values()
+            if _normalize_company_query(entry.get("title", "")).startswith(alias_query)
+        ]
+        if len(prefix_matches) == 1:
+            return self.get_company_info(str(prefix_matches[0].get("cik_str")).zfill(10))
+        if len(prefix_matches) > 1:
+            raise CompanyNotFoundError(_ambiguous_company_message(query, prefix_matches))
+
+        contains_matches = [
+            entry for entry in tickers.values()
+            if alias_query in _normalize_company_query(entry.get("title", ""))
+        ]
+        if len(contains_matches) == 1:
+            return self.get_company_info(str(contains_matches[0].get("cik_str")).zfill(10))
+        if len(contains_matches) > 1:
+            raise CompanyNotFoundError(_ambiguous_company_message(query, contains_matches))
+
+        raise CompanyNotFoundError(
+            f"Company query '{query}' was not found in SEC EDGAR ticker metadata. "
+            "Try a ticker or a more complete legal company name."
         )
 
     def get_company_info(self, cik: str) -> CompanyInfo:

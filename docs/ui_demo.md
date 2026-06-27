@@ -22,14 +22,15 @@ It does not call Bedrock, run the M3 pipeline, require API credentials, or requi
 
 The **Research Console** module accepts:
 
-- ticker, such as `AAPL`
+- company name, alias, or ticker, such as `Apple`, `JP Morgan`, `Google`, or `AAPL`
 - risk theme, such as `Leverage Analysis`
 - fiscal years, such as `2023, 2024`
 
 It then runs the deterministic universal analyzer:
 
 ```text
-ticker lookup
+company/ticker resolver
+-> SEC ticker, CIK, and standard company name
 -> SEC submissions metadata
 -> SEC companyfacts JSON
 -> configured XBRL concept mapping
@@ -37,7 +38,7 @@ ticker lookup
 -> deterministic credit brief
 ```
 
-By default, this mode does not call Bedrock. It requires live access to `www.sec.gov` and `data.sec.gov`.
+By default, this mode does not call Bedrock. It requires live access to `www.sec.gov` and `data.sec.gov`. The preset selector only loads verified demo shortcuts; users can still type any SEC EDGAR-covered public company name or ticker, subject to available companyfacts and configured XBRL concept coverage.
 
 An optional **Generate detailed LLM stage workpaper** checkbox runs a Bedrock-backed analyst narrative after deterministic SEC/XBRL extraction. That optional mode generates stage-level workpaper notes for:
 

@@ -66,6 +66,58 @@ class SECCompanyLookupTest(unittest.TestCase):
         self.assertEqual(cik_upper, cik_lower)
         self.assertEqual(cik_upper, cik_mixed)
 
+    def test_resolve_company_query_by_ticker_without_network(self):
+        """Resolver accepts ticker input and returns normalized company metadata."""
+        self.lookup._load_tickers_json = Mock(return_value={
+            "0": {"ticker": "AAPL", "title": "Apple Inc.", "cik_str": 320193},
+        })
+        self.lookup.get_company_info = Mock(return_value=Mock(
+            name="Apple Inc.",
+            cik="0000320193",
+            ticker="AAPL",
+            sic="3571",
+            sector="Nasdaq",
+            fiscal_years_available=[2024, 2023],
+        ))
+
+        info = self.lookup.resolve_company_query("apple")
+
+        self.assertEqual(info.ticker, "AAPL")
+        self.assertEqual(info.cik, "0000320193")
+        self.lookup.get_company_info.assert_called_once_with("0000320193")
+
+    def test_resolve_company_query_by_partial_name_without_network(self):
+        """Resolver accepts partial company names and common aliases."""
+        self.lookup._load_tickers_json = Mock(return_value={
+            "0": {"ticker": "GOOGL", "title": "Alphabet Inc.", "cik_str": 1652044},
+            "1": {"ticker": "JPM", "title": "JPMorgan Chase & Co.", "cik_str": 19617},
+        })
+        self.lookup.get_company_info = Mock(return_value=Mock(
+            name="JPMorgan Chase & Co.",
+            cik="0000019617",
+            ticker="JPM",
+            sic="6021",
+            sector="NYSE",
+            fiscal_years_available=[2024, 2023],
+        ))
+
+        info = self.lookup.resolve_company_query("JP Morgan")
+
+        self.assertEqual(info.ticker, "JPM")
+        self.assertEqual(info.cik, "0000019617")
+
+    def test_resolve_company_query_reports_ambiguous_matches(self):
+        """Resolver does not silently choose when name search is ambiguous."""
+        self.lookup._load_tickers_json = Mock(return_value={
+            "0": {"ticker": "ABC", "title": "Alpha Bank Corp.", "cik_str": 1},
+            "1": {"ticker": "ABD", "title": "Alpha Bancorp Depositary", "cik_str": 2},
+        })
+
+        with self.assertRaises(CompanyNotFoundError) as ctx:
+            self.lookup.resolve_company_query("alpha")
+
+        self.assertIn("Ambiguous", str(ctx.exception))
+
     @requires_sec_network
     def test_tickers_json_caching(self):
         """Test that tickers JSON is cached locally."""

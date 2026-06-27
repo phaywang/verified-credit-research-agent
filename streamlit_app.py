@@ -714,19 +714,26 @@ def render_live_sec_analysis() -> None:
   maps XBRL concepts, calculates verified changes, and writes no local run artifacts.
 </div>
 """,
-        unsafe_allow_html=True,
-    )
+            unsafe_allow_html=True,
+        )
 
     form_col, guide_col = st.columns([1.05, 0.95], gap="large")
 
     with form_col:
         with st.container(border=True):
             st.markdown("**Research request**")
-            sample_label = st.selectbox("Sample case", list(LIVE_SAMPLE_CASES.keys()))
+            sample_label = st.selectbox("Load verified demo preset", list(LIVE_SAMPLE_CASES.keys()))
             sample_ticker, sample_theme, sample_years = LIVE_SAMPLE_CASES[sample_label]
             with st.form("live_sec_analysis_form"):
                 cols = st.columns([0.8, 1.2, 1])
-                ticker = cols[0].text_input("Ticker", value=sample_ticker).strip().upper()
+                company_query = cols[0].text_input(
+                    "Company or ticker",
+                    value=sample_ticker,
+                    help=(
+                        "Enter a ticker or company name, such as AAPL, Apple, "
+                        "JP Morgan, Google, Microsoft, Ford, or Meta."
+                    ),
+                ).strip()
                 theme_label = cols[1].selectbox(
                     "Risk theme",
                     list(RISK_THEMES.keys()),
@@ -749,12 +756,13 @@ def render_live_sec_analysis() -> None:
 <div class="control-panel">
   <div class="title">Execution controls</div>
   <div class="text">
-    Live mode is deterministic and separate from the Bedrock ReAct workpaper.
-    It uses SEC companyfacts and configured concept mappings, then exposes the
-    generated brief, verified facts, and trace for analyst review.
+    Enter either a ticker or a company name. The resolver standardizes the input
+    to SEC ticker, CIK, and company name before companyfacts retrieval. Presets
+    are demo shortcuts, not the full supported universe.
   </div>
   <br>
   <div class="badge-row">
+    <span class="badge">name resolver</span>
     <span class="badge">read-only</span>
     <span class="badge">SEC companyfacts</span>
     <span class="badge">verified deltas</span>
@@ -774,20 +782,20 @@ def render_live_sec_analysis() -> None:
         st.error("Fiscal years must be comma-separated integers, for example: 2023, 2024.")
         return
 
-    if not ticker:
-        st.error("Ticker is required.")
+    if not company_query:
+        st.error("Company or ticker is required.")
         return
     if len(years) < 1:
         st.error("At least one fiscal year is required.")
         return
 
     analyzer = get_universal_analyzer()
-    spinner_text = f"Fetching SEC companyfacts for {ticker}..."
+    spinner_text = f"Resolving company and fetching SEC companyfacts for {company_query}..."
     if include_llm_workpaper:
-        spinner_text = f"Fetching SEC facts and generating guarded LLM workpaper for {ticker}..."
+        spinner_text = f"Resolving company, fetching SEC facts, and generating guarded LLM workpaper for {company_query}..."
     with st.spinner(spinner_text):
         result = analyzer.analyze(
-            ticker,
+            company_query,
             RISK_THEMES[theme_label],
             years,
             include_llm_workpaper=include_llm_workpaper,
