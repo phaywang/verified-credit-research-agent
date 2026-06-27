@@ -27,6 +27,8 @@ from credit_research_agent.brief_generator import (
 )
 from credit_research_agent.llm_stage_workpaper import generate_stage_workpaper
 from credit_research_agent.metric_resolver import MetricResolver
+from credit_research_agent.statement_extractor import StatementLineItem, StatementTableExtractor
+from credit_research_agent.statement_metric_resolver import StatementMetricResolver
 from credit_research_agent.task_generator import TaskGenerator
 from credit_research_agent.xbrl_inventory import XBRLFactInventoryBuilder
 
@@ -35,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 CALCULATED_METRIC_DEPENDENCIES = {
     "free_cash_flow": ["operating_cash_flow", "capital_expenditures"],
+    "total_debt": ["current_debt", "long_term_debt"],
 }
 
 
@@ -63,6 +66,8 @@ class UniversalCreditAnalyzer:
         self.parser = XBRLParser()
         self.inventory_builder = XBRLFactInventoryBuilder(self.parser)
         self.metric_resolver = MetricResolver()
+        self.statement_extractor = StatementTableExtractor()
+        self.statement_metric_resolver = StatementMetricResolver()
         self.config_loader = ConfigLoader()
         self.task_generator = TaskGenerator()
         self.brief_generator = BriefGenerator()
@@ -123,12 +128,22 @@ class UniversalCreditAnalyzer:
                 "entity": companyfacts.get("entityName", company_info.name),
             })
 
+            # Step 2b: Fetch 10-K statement tables for statement-first metrics.
+            logger.info("Fetching 10-K statement tables...")
+            result.trace.append({"step": "fetch_statement_tables", "status": "starting"})
+            statement_line_items = self._fetch_statement_line_items(company_info, years)
+            result.trace.append({
+                "step": "fetch_statement_tables",
+                "status": "success",
+                "line_items": len(statement_line_items),
+            })
+
             # Step 3: Parse XBRL and extract metrics
             logger.info("Extracting metrics from SEC companyfacts...")
             result.trace.append({"step": "extract_companyfacts", "status": "starting"})
 
             metrics_by_year = self._extract_metrics(
-                companyfacts, risk_theme, years
+                companyfacts, risk_theme, years, statement_line_items
             )
             result.metrics = metrics_by_year
             result.trace.append({
@@ -255,6 +270,51 @@ class UniversalCreditAnalyzer:
         """Fetch structured SEC companyfacts for deterministic metric extraction."""
         return self.fetcher.fetch_companyfacts(cik)
 
+    def _fetch_statement_line_items(
+        self,
+        company_info: CompanyInfo,
+        years: List[int],
+    ) -> List[StatementLineItem]:
+        """Fetch 10-K HTML packages and extract financial statement line items."""
+        line_items: List[StatementLineItem] = []
+        seen_accessions = set()
+        for year in years:
+            extracted_for_year: List[StatementLineItem] = []
+            candidate_years = [year, year + 1]
+            try:
+                for package_year in candidate_years:
+                    package = self.fetcher.fetch_10k_filing_package(
+                        company_info.cik,
+                        package_year,
+                    )
+                    extracted = self.statement_extractor.extract(package)
+                    if not any(item.fiscal_year == year for item in extracted):
+                        continue
+                    extracted_for_year = extracted
+                    break
+
+                if not extracted_for_year:
+                    logger.warning(
+                        "No statement table rows mapped to fiscal year %s for %s",
+                        year,
+                        company_info.ticker or company_info.name,
+                    )
+                    continue
+
+                accession = extracted_for_year[0].accession_number
+                if accession in seen_accessions:
+                    continue
+                seen_accessions.add(accession)
+                line_items.extend(extracted_for_year)
+            except Exception as exc:
+                logger.warning(
+                    "Statement table extraction unavailable for %s %s: %s",
+                    company_info.ticker or company_info.name,
+                    year,
+                    exc,
+                )
+        return line_items
+
     def _generate_unresolved_company_brief(
         self,
         query: str,
@@ -299,9 +359,11 @@ class UniversalCreditAnalyzer:
         companyfacts: Dict[str, Any],
         risk_theme: str,
         years: List[int],
+        statement_line_items: Optional[List[StatementLineItem]] = None,
     ) -> Dict[int, List[MetricValue]]:
-        """Extract metrics for each year from SEC companyfacts."""
+        """Extract metrics for each year, preferring statement rows over companyfacts."""
         metrics_by_year: Dict[int, List[MetricValue]] = {}
+        statement_line_items = statement_line_items or []
 
         theme_config = self.config_loader.get_risk_theme(risk_theme)
         metric_names = self._metric_names_for_theme(theme_config)
@@ -323,6 +385,8 @@ class UniversalCreditAnalyzer:
             "missing_metrics_by_year": {},
             "inventory_summary_by_year": {},
             "metric_resolutions_by_year": {},
+            "statement_resolutions_by_year": {},
+            "statement_source_register": [],
             "diagnostics": [],
         }
 
@@ -335,22 +399,68 @@ class UniversalCreditAnalyzer:
 
             extracted: Dict[str, MetricValue] = {}
             resolutions = []
+            statement_resolutions = []
             for metric_name in extraction_metric_names:
                 if (
                     metric_name in CALCULATED_METRIC_DEPENDENCIES
                     and not metric_selectors.get(metric_name)
                 ):
+                    self._append_calculated_metric_trace(resolutions, metric_name, year)
+                    continue
+                statement_resolution = self.statement_metric_resolver.resolve(
+                    metric_name,
+                    year,
+                    statement_line_items,
+                )
+                statement_resolutions.append(statement_resolution.to_dict())
+                if (
+                    statement_resolution.status == "verified_statement"
+                    and statement_resolution.metric_value is not None
+                ):
+                    extracted[metric_name] = statement_resolution.metric_value
+                    cross_check = self._cross_check_statement_metric(
+                        metric_name,
+                        inventory,
+                        metric_selectors.get(metric_name, []),
+                        statement_resolution.metric_value,
+                    )
+                    coverage_status = (
+                        "verified_cross_checked"
+                        if cross_check["status"] == "matched"
+                        else "cross_check_mismatch"
+                        if cross_check["status"] == "mismatch"
+                        else "verified_statement"
+                    )
+                    if statement_resolution.source_item is not None:
+                        self._last_metric_coverage["statement_source_register"].append(
+                            {
+                                "metric_name": metric_name,
+                                **statement_resolution.source_item.to_dict(),
+                                "source_type": "statement",
+                                "coverage_status": coverage_status,
+                                "companyfacts_cross_check": cross_check,
+                            }
+                        )
                     resolutions.append(
                         {
                             "metric_name": metric_name,
                             "fiscal_year": year,
-                            "status": "calculated_metric",
-                            "accepted_concept": None,
-                            "selected_fact": None,
+                            "status": coverage_status,
+                            "accepted_concept": (
+                                statement_resolution.source_item.xbrl_concept
+                                if statement_resolution.source_item is not None
+                                else None
+                            ),
+                            "selected_fact": (
+                                statement_resolution.source_item.to_dict()
+                                if statement_resolution.source_item is not None
+                                else None
+                            ),
                             "candidates": [],
-                            "rejected_candidates": [],
-                            "decision_basis": "deterministic_calculation_from_dependencies",
-                            "requires_review": False,
+                            "rejected_candidates": statement_resolution.rejected_items,
+                            "decision_basis": statement_resolution.decision_basis,
+                            "companyfacts_cross_check": cross_check,
+                            "requires_review": cross_check["status"] == "mismatch",
                         }
                     )
                     continue
@@ -372,13 +482,18 @@ class UniversalCreditAnalyzer:
                     source=fact.source,
                 )
 
-            self._last_metric_coverage["metric_resolutions_by_year"][str(year)] = (
-                resolutions
+            self._last_metric_coverage["statement_resolutions_by_year"][str(year)] = (
+                statement_resolutions
             )
-            metrics_by_year[year] = self._with_calculated_metrics(
+            final_metrics = self._with_calculated_metrics(
                 year,
                 extracted,
                 metric_names,
+            )
+            self._append_calculated_metric_resolution_rows(year, final_metrics, resolutions)
+            metrics_by_year[year] = final_metrics
+            self._last_metric_coverage["metric_resolutions_by_year"][str(year)] = (
+                resolutions
             )
 
         available_by_metric: Dict[str, List[int]] = {}
@@ -406,6 +521,121 @@ class UniversalCreditAnalyzer:
         )
 
         return metrics_by_year
+
+    @staticmethod
+    def _append_calculated_metric_trace(
+        resolutions: List[Dict[str, Any]],
+        metric_name: str,
+        year: int,
+    ) -> None:
+        resolutions.append(
+            {
+                "metric_name": metric_name,
+                "fiscal_year": year,
+                "status": "calculated_metric",
+                "accepted_concept": None,
+                "selected_fact": None,
+                "candidates": [],
+                "rejected_candidates": [],
+                "decision_basis": "deterministic_calculation_from_dependencies",
+                "requires_review": False,
+            }
+        )
+
+    def _cross_check_statement_metric(
+        self,
+        metric_name: str,
+        inventory,
+        selectors: List[str],
+        statement_metric: MetricValue,
+    ) -> Dict[str, Any]:
+        """Compare a statement-derived metric to companyfacts when configured."""
+        if not selectors:
+            return {
+                "status": "not_configured",
+                "companyfacts_concept": None,
+                "companyfacts_value": None,
+                "difference": None,
+            }
+        resolution = self.metric_resolver.resolve(metric_name, inventory, selectors)
+        if resolution.status != "resolved" or resolution.selected_fact is None:
+            return {
+                "status": "not_found",
+                "companyfacts_concept": None,
+                "companyfacts_value": None,
+                "difference": None,
+            }
+        companyfacts_value = resolution.selected_fact.value
+        difference = None
+        if statement_metric.value is not None and companyfacts_value is not None:
+            difference = statement_metric.value - companyfacts_value
+        matched = difference is not None and abs(difference) <= 1.0
+        return {
+            "status": "matched" if matched else "mismatch",
+            "companyfacts_concept": resolution.selected_fact.concept,
+            "companyfacts_value": companyfacts_value,
+            "difference": difference,
+        }
+
+    def _append_calculated_metric_resolution_rows(
+        self,
+        year: int,
+        metrics: List[MetricValue],
+        resolutions: List[Dict[str, Any]],
+    ) -> None:
+        """Record calculated metrics with values after source inputs are verified."""
+        existing_calculated = {
+            row.get("metric_name")
+            for row in resolutions
+            if row.get("status") == "calculated_from_verified_inputs"
+        }
+        for metric in metrics:
+            if metric.source != "deterministic_calculation":
+                continue
+            if metric.metric_name in existing_calculated:
+                continue
+            selected_fact = {
+                "metric_name": metric.metric_name,
+                "value": metric.value,
+                "unit": metric.unit,
+                "fiscal_year": metric.fiscal_year,
+                "xbrl_concept": metric.xbrl_concept,
+                "source": metric.source,
+            }
+            resolutions.append(
+                {
+                    "metric_name": metric.metric_name,
+                    "fiscal_year": year,
+                    "status": "calculated_from_verified_inputs",
+                    "accepted_concept": metric.xbrl_concept,
+                    "selected_fact": selected_fact,
+                    "candidates": [],
+                    "rejected_candidates": [],
+                    "decision_basis": "deterministic_calculation_from_verified_inputs",
+                    "requires_review": False,
+                }
+            )
+            self._last_metric_coverage["statement_source_register"].append(
+                {
+                    "metric_name": metric.metric_name,
+                    "company": "",
+                    "ticker": "",
+                    "fiscal_year": year,
+                    "statement_type": "calculated",
+                    "row_label": "Calculated from verified input metrics",
+                    "normalized_label": "deterministic calculation",
+                    "value": metric.value,
+                    "unit": metric.unit,
+                    "period_end": str(year),
+                    "column_label": str(year),
+                    "xbrl_concept": metric.xbrl_concept,
+                    "source_url": "",
+                    "accession_number": "",
+                    "confidence": "high",
+                    "source_type": "calculated",
+                    "coverage_status": "calculated_from_verified_inputs",
+                }
+            )
 
     def _metric_names_for_theme(self, theme_config) -> List[str]:
         """Read metric names from either real config dataclass or legacy test dict."""
@@ -585,6 +815,30 @@ class UniversalCreditAnalyzer:
                 calculated = self._last_metric_coverage.setdefault("calculated_metrics", [])
                 if "free_cash_flow" not in calculated:
                     calculated.append("free_cash_flow")
+
+        if "total_debt" in requested_metrics:
+            current_debt = metrics.get("current_debt")
+            long_term_debt = metrics.get("long_term_debt")
+            if (
+                current_debt is not None
+                and current_debt.value is not None
+                and long_term_debt is not None
+                and long_term_debt.value is not None
+            ):
+                metrics["total_debt"] = MetricValue(
+                    metric_name="total_debt",
+                    value=current_debt.value + long_term_debt.value,
+                    unit=current_debt.unit,
+                    fiscal_year=year,
+                    xbrl_concept=(
+                        f"calculated:{current_debt.xbrl_concept}"
+                        f"+{long_term_debt.xbrl_concept}"
+                    ),
+                    source="deterministic_calculation",
+                )
+                calculated = self._last_metric_coverage.setdefault("calculated_metrics", [])
+                if "total_debt" not in calculated:
+                    calculated.append("total_debt")
 
         available = set(metrics)
         missing_for_year = []

@@ -313,6 +313,167 @@ def inject_css() -> None:
     border-radius: 6px;
     color: #344054;
   }
+  .console-hero {
+    border: 1px solid #cfd6e3;
+    border-top: 3px solid var(--accent);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 8px 0 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: flex-start;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  }
+  .console-hero .title {
+    color: var(--ink);
+    font-size: 1.02rem;
+    font-weight: 780;
+    margin-bottom: 5px;
+  }
+  .console-hero .text {
+    color: #475467;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    max-width: 840px;
+  }
+  .console-hero .mode {
+    border: 1px solid #b8c2d3;
+    background: #111827;
+    color: #ffffff;
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .request-panel {
+    border: 1px solid #cfd6e3;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 0;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+  }
+  .request-panel-header {
+    border-bottom: 1px solid var(--line);
+    background: #f8fafc;
+    padding: 13px 15px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .request-panel-header .title {
+    color: var(--ink);
+    font-size: 0.96rem;
+    font-weight: 800;
+    margin-bottom: 3px;
+  }
+  .request-panel-header .subtitle {
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+  .request-panel-header .stamp {
+    border: 1px solid #cfd6e3;
+    background: #ffffff;
+    color: #344054;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .request-panel-body {
+    padding: 14px 15px 15px;
+  }
+  .field-band {
+    border-top: 1px solid #e3e8ef;
+    padding: 13px 0 0;
+    margin: 14px 0 8px;
+  }
+  .field-band-title {
+    color: #344054;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 0;
+  }
+  .execution-rail {
+    border: 1px solid #cfd6e3;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+  }
+  .execution-rail-header {
+    background: #111827;
+    color: #ffffff;
+    padding: 14px 15px;
+  }
+  .execution-rail-header .title {
+    color: #ffffff;
+    font-size: 0.96rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .execution-rail-header .text {
+    color: #cbd5e1;
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+  .execution-rail-body {
+    padding: 12px 14px 14px;
+  }
+  .rail-row {
+    border-bottom: 1px solid #eef2f6;
+    padding: 9px 0;
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+  .rail-row:last-child {
+    border-bottom: 0;
+  }
+  .rail-label {
+    color: #667085;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .rail-value {
+    color: #344054;
+    font-size: 0.82rem;
+    line-height: 1.42;
+  }
+  .rail-checks {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 7px;
+    margin-top: 8px;
+  }
+  .rail-check {
+    border: 1px solid #dbe4ee;
+    background: #f8fafc;
+    color: #344054;
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-size: 0.78rem;
+    font-weight: 650;
+  }
+  .rail-check strong {
+    color: var(--good);
+    margin-right: 5px;
+  }
 .small-muted {
     color: var(--muted);
     font-size: 0.86rem;
@@ -382,6 +543,25 @@ def inject_css() -> None:
     border-radius: 7px;
     font-weight: 700;
     min-height: 34px;
+  }
+  div[data-testid="stForm"] {
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+  div[data-testid="stForm"] label p {
+    color: #344054;
+    font-size: 0.82rem;
+    font-weight: 730;
+  }
+  div[data-testid="stTextInput"] input,
+  div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+    border-radius: 7px;
+  }
+  div[data-testid="stFormSubmitButton"] button {
+    min-height: 42px;
+    border-radius: 7px;
+    font-weight: 800;
   }
   .workflow-step {
     border: 1px solid var(--line);
@@ -462,6 +642,17 @@ def inject_css() -> None:
     .topbar h1 {
       font-size: 1.35rem;
     }
+    .console-hero {
+      display: block;
+    }
+    .console-hero .mode {
+      display: inline-block;
+      margin-top: 10px;
+    }
+    .rail-row {
+      grid-template-columns: 1fr;
+      gap: 3px;
+    }
   }
 </style>
 """,
@@ -528,7 +719,7 @@ def summarize_run(run: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         "guardrail_status": guardrail_status,
         "blocked_claims": blocked_claims if stage_workpapers else "n/a",
         "semantic_status": "not run",
-        "tool_calls": "SEC companyfacts",
+        "tool_calls": "SEC statements + companyfacts",
         "verified_facts": sum(len(items) for result in results for items in result.metrics.values()),
         "themes": theme_labels,
         "years": first_result.years if first_result else [],
@@ -553,7 +744,7 @@ def render_topbar(summary: Dict[str, Any]) -> None:
     <span class="badge good">Guardrail: {summary.get("guardrail_status", "not run")}</span>
     <span class="badge">Run: {summary.get("run_status", "empty")}</span>
     <span class="badge">Blocked claims: {summary.get("blocked_claims", "n/a")}</span>
-    <span class="badge">SEC companyfacts</span>
+    <span class="badge">SEC statements</span>
   </div>
 </div>
 """,
@@ -566,7 +757,7 @@ def render_topbar(summary: Dict[str, Any]) -> None:
     <span class="command-label">Environment</span>
     <span class="control-chip">Demo workspace</span>
     <span class="control-chip">Read-only artifacts</span>
-    <span class="control-chip">SEC companyfacts enabled</span>
+    <span class="control-chip">SEC statement extraction enabled</span>
   </div>
   <div class="right">
     <span class="command-label">Controls</span>
@@ -589,7 +780,7 @@ PAGE_META = {
     "Research Console": {
         "code": "02",
         "nav": "02  Research Console",
-        "description": "Live SEC companyfacts workflow for ticker-level deterministic analysis.",
+        "description": "Live SEC statement-first workflow for ticker-level deterministic analysis.",
     },
     "Workpaper Audit": {
         "code": "03",
@@ -815,23 +1006,43 @@ def mark_custom_preset_if_needed(
 
 def render_live_sec_analysis() -> None:
     st.markdown('<div class="section-kicker">Research console</div>', unsafe_allow_html=True)
-    st.subheader("Live SEC companyfacts analysis")
+    st.subheader("Live SEC statement analysis")
     st.markdown(
         """
-<div class="callout">
-  Read-only deterministic workflow. The console retrieves SEC structured facts,
-  maps XBRL concepts, calculates verified changes, and writes no local run artifacts.
+<div class="console-hero">
+  <div>
+    <div class="title">Statement-first credit research workflow</div>
+    <div class="text">
+      Resolve a public issuer, retrieve SEC 10-K statement tables and companyfacts,
+      verify financial metrics deterministically, then generate analyst-ready
+      coverage diagnostics and source registers.
+    </div>
+  </div>
+  <div class="mode">Read-only live SEC</div>
 </div>
 """,
             unsafe_allow_html=True,
         )
 
-    form_col, guide_col = st.columns([1.05, 0.95], gap="large")
+    form_col, guide_col = st.columns([1.18, 0.82], gap="large")
 
     with form_col:
-        with st.container(border=True):
-            ensure_live_form_state()
-            st.markdown("**Research request**")
+        ensure_live_form_state()
+        st.markdown(
+            """
+<div class="request-panel">
+  <div class="request-panel-header">
+    <div>
+      <div class="title">Research request</div>
+      <div class="subtitle">Define the issuer, risk lens, and fiscal period for deterministic SEC analysis.</div>
+    </div>
+    <div class="stamp">Input deck</div>
+  </div>
+  <div class="request-panel-body">
+""",
+            unsafe_allow_html=True,
+        )
+        with st.container():
             st.selectbox(
                 "Load verified demo preset",
                 list(LIVE_SAMPLE_CASES.keys()),
@@ -839,6 +1050,14 @@ def render_live_sec_analysis() -> None:
             )
             apply_selected_preset_if_changed()
             with st.form("live_sec_analysis_form"):
+                st.markdown(
+                    """
+<div class="field-band">
+  <div class="field-band-title">Issuer resolution</div>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
                 company_query = st.text_input(
                     "Company or ticker",
                     key=LIVE_COMPANY_KEY,
@@ -847,6 +1066,14 @@ def render_live_sec_analysis() -> None:
                         "JP Morgan, Google, Microsoft, Ford, or Meta."
                     ),
                 ).strip()
+                st.markdown(
+                    """
+<div class="field-band">
+  <div class="field-band-title">Analysis scope</div>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
                 selector_cols = st.columns([1.15, 0.85], gap="medium")
                 with selector_cols[0]:
                     theme_labels = pill_selector(
@@ -864,6 +1091,14 @@ def render_live_sec_analysis() -> None:
                         defaults=st.session_state.get(LIVE_YEARS_KEY, [2024, 2023]),
                         key_prefix=LIVE_YEARS_KEY,
                     )
+                st.markdown(
+                    """
+<div class="field-band">
+  <div class="field-band-title">Optional analyst workpaper</div>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
                 include_llm_workpaper = st.checkbox(
                     "Generate detailed LLM stage workpaper",
                     value=False,
@@ -874,24 +1109,35 @@ def render_live_sec_analysis() -> None:
                     ),
                 )
                 submitted = st.form_submit_button("Run Analysis", type="primary", width="stretch")
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
     with guide_col:
         st.markdown(
             """
-<div class="control-panel">
-  <div class="title">Execution controls</div>
-  <div class="text">
-    Enter either a ticker or a company name. The resolver standardizes the input
-    to SEC ticker, CIK, and company name before companyfacts retrieval. Risk
-    themes and fiscal years are controlled selections; multiple themes can be
-    run as one analysis set.
+<div class="execution-rail">
+  <div class="execution-rail-header">
+    <div class="title">Execution controls</div>
+    <div class="text">The run is deterministic by default. LLM workpapers are optional and remain downstream of verified SEC facts.</div>
   </div>
-  <br>
-  <div class="badge-row">
-    <span class="badge">name resolver</span>
-    <span class="badge">read-only</span>
-    <span class="badge">SEC companyfacts</span>
-    <span class="badge">verified deltas</span>
+  <div class="execution-rail-body">
+    <div class="rail-row">
+      <div class="rail-label">Resolver</div>
+      <div class="rail-value">Ticker or company name is standardized to SEC ticker, CIK, and registrant name before analysis.</div>
+    </div>
+    <div class="rail-row">
+      <div class="rail-label">Sources</div>
+      <div class="rail-value">10-K statement tables first; companyfacts is used for cross-checking and fallback.</div>
+    </div>
+    <div class="rail-row">
+      <div class="rail-label">Controls</div>
+      <div class="rail-value">Risk themes and fiscal years are controlled selections. Multiple themes run as one analysis set.</div>
+    </div>
+    <div class="rail-checks">
+      <div class="rail-check"><strong>OK</strong> read-only SEC workflow</div>
+      <div class="rail-check"><strong>OK</strong> deterministic calculations</div>
+      <div class="rail-check"><strong>OK</strong> statement source register</div>
+      <div class="rail-check"><strong>OK</strong> coverage diagnostics</div>
+    </div>
   </div>
 </div>
 """,
@@ -1058,7 +1304,7 @@ def render_live_result(
     if unavailable_metrics:
         st.warning(
             "Coverage limitation: the selected theme requested metric(s) with no "
-            f"verified SEC companyfacts values in the selected years: "
+            f"verified statement/companyfacts source in the selected years: "
             f"{', '.join(unavailable_metrics)}."
         )
     partial_metrics = coverage.get("partial_metrics", [])
@@ -1089,7 +1335,7 @@ def render_live_result(
 
     resolution_rows = metric_resolution_rows(coverage)
     if resolution_rows:
-        with st.expander("XBRL resolver decisions"):
+        with st.expander("Metric source register"):
             st.dataframe(resolution_rows, width="stretch", hide_index=True)
 
     changes = change_rows(result)
@@ -1132,20 +1378,39 @@ def metric_coverage(result: AnalysisResult) -> Dict[str, Any]:
 
 
 def metric_resolution_rows(coverage: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Flatten XBRL metric resolver decisions for analyst review."""
+    """Flatten statement/companyfacts resolver decisions for analyst review."""
     rows = []
     by_year = coverage.get("metric_resolutions_by_year", {})
     for fiscal_year, resolutions in sorted(by_year.items()):
         for resolution in resolutions:
             selected_fact = resolution.get("selected_fact") or {}
+            status = resolution.get("status")
+            cross_check = resolution.get("companyfacts_cross_check") or {}
+            is_statement = status in {
+                "verified_statement",
+                "verified_cross_checked",
+                "cross_check_mismatch",
+            }
+            is_calculated = status == "calculated_from_verified_inputs"
             rows.append(
                 {
                     "fiscal_year": fiscal_year,
                     "metric": resolution.get("metric_name"),
-                    "status": resolution.get("status"),
+                    "status": status,
+                    "source_type": (
+                        "statement"
+                        if is_statement
+                        else "calculated"
+                        if is_calculated
+                        else "companyfacts"
+                    ),
+                    "statement_type": selected_fact.get("statement_type", ""),
+                    "row_label": selected_fact.get("row_label", ""),
                     "accepted_concept": resolution.get("accepted_concept") or "",
                     "value": selected_fact.get("value"),
                     "unit": selected_fact.get("unit", ""),
+                    "companyfacts_cross_check": cross_check.get("status", ""),
+                    "cross_check_difference": cross_check.get("difference"),
                     "basis": resolution.get("decision_basis", ""),
                     "requires_review": resolution.get("requires_review", False),
                 }

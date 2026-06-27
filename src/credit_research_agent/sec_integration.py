@@ -115,6 +115,21 @@ class MetricValue:
     source: str  # "XBRL" or "text_extraction"
 
 
+@dataclass
+class FilingPackage:
+    """Downloaded SEC filing package for statement-table extraction."""
+
+    company: str
+    ticker: str
+    cik: str
+    fiscal_year: int
+    filing_date: str
+    report_date: str
+    accession_number: str
+    primary_doc_url: str
+    html: str
+
+
 class CompanyNotFoundError(Exception):
     """Raised when company/ticker is not found in SEC EDGAR"""
     pass
@@ -460,6 +475,99 @@ class SEC10KFetcher:
             raise FilingNotFoundError(
                 f"Failed to fetch 10-K for CIK {cik}, year {fiscal_year}: {e}"
             )
+
+    def fetch_10k_filing_package(self, cik: str, fiscal_year: int) -> FilingPackage:
+        """Download the primary 10-K HTML package for a fiscal/report year.
+
+        The selection prefers an exact reportDate year match before falling back
+        to filing-year matching. This matters for non-calendar fiscal years
+        where the 10-K may be filed in the following calendar year.
+        """
+        if requests is None:
+            raise ImportError("requests library required for SEC API calls")
+
+        cik_padded = str(cik).zfill(10)
+        try:
+            url = self.SEC_DATA_API.format(cik=cik_padded)
+            response = _sec_get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            filings = data.get("filings", {}).get("recent", {})
+            candidate = self._select_10k_filing(filings, fiscal_year)
+            if candidate is None:
+                raise FilingNotFoundError(
+                    f"No 10-K filing found for CIK {cik} in fiscal year {fiscal_year}"
+                )
+
+            accession_no_dash = candidate["accession_number"].replace("-", "")
+            cik_no_leading_zeroes = str(int(cik_padded))
+            primary_doc_url = (
+                f"{self.SEC_ARCHIVES}/edgar/data/"
+                f"{cik_no_leading_zeroes}/{accession_no_dash}/{candidate['primary_document']}"
+            )
+            filing_response = _sec_get(primary_doc_url, timeout=30)
+            filing_response.raise_for_status()
+
+            tickers = data.get("tickers", [])
+            return FilingPackage(
+                company=data.get("name") or data.get("entityName", ""),
+                ticker=tickers[0] if tickers else "",
+                cik=cik_padded,
+                fiscal_year=fiscal_year,
+                filing_date=candidate.get("filing_date", ""),
+                report_date=candidate.get("report_date", ""),
+                accession_number=candidate["accession_number"],
+                primary_doc_url=primary_doc_url,
+                html=filing_response.text,
+            )
+
+        except FilingNotFoundError:
+            raise
+        except (requests.RequestException, json.JSONDecodeError, KeyError, ValueError) as e:
+            raise FilingNotFoundError(
+                f"Failed to fetch 10-K filing package for CIK {cik}, year {fiscal_year}: {e}"
+            )
+
+    @staticmethod
+    def _select_10k_filing(filings: Dict, fiscal_year: int) -> Optional[Dict[str, str]]:
+        """Select a 10-K by exact report year, then filing-year fallback."""
+        forms = filings.get("form", [])
+        accession = filings.get("accessionNumber", [])
+        filing_dates = filings.get("filingDate", [])
+        report_dates = filings.get("reportDate", [])
+        primary_docs = filings.get("primaryDocument", [])
+        fiscal_years = filings.get("fy", [])
+
+        candidates = []
+        for i, form_type in enumerate(forms):
+            if form_type not in {"10-K", "10-K/A"}:
+                continue
+            if i >= len(accession) or i >= len(primary_docs):
+                continue
+            report_date = report_dates[i] if i < len(report_dates) else ""
+            filing_date = filing_dates[i] if i < len(filing_dates) else ""
+            filing_fy = fiscal_years[i] if i < len(fiscal_years) else None
+            candidate = {
+                "accession_number": accession[i],
+                "primary_document": primary_docs[i],
+                "filing_date": filing_date,
+                "report_date": report_date,
+                "form": form_type,
+                "fy": str(filing_fy or ""),
+            }
+            if str(filing_fy or "") == str(fiscal_year):
+                candidates.append((4, filing_date, candidate))
+            elif report_date[:4] == str(fiscal_year):
+                candidates.append((3, filing_date, candidate))
+            elif filing_date[:4] == str(fiscal_year):
+                candidates.append((2, filing_date, candidate))
+            elif filing_date[:4] == str(fiscal_year + 1):
+                candidates.append((1, filing_date, candidate))
+
+        if not candidates:
+            return None
+        return sorted(candidates, key=lambda item: (item[0], item[1]), reverse=True)[0][2]
 
     def fetch_companyfacts(self, cik: str) -> Dict:
         """Fetch SEC companyfacts JSON for structured XBRL facts.

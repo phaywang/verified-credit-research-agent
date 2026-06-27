@@ -290,6 +290,42 @@ class SEC10KFetcherTest(unittest.TestCase):
         )
 
     @patch("credit_research_agent.sec_integration.requests.get")
+    def test_fetch_10k_filing_package_prefers_report_year(self, mock_get):
+        """Filing package selection prefers exact reportDate fiscal year."""
+        submissions_response = Mock()
+        submissions_response.json.return_value = {
+            "name": "Example Co",
+            "tickers": ["EX"],
+            "filings": {
+                "recent": {
+                    "form": ["10-K", "10-K"],
+                    "accessionNumber": [
+                        "0000000000-26-000001",
+                        "0000000000-25-000001",
+                    ],
+                    "filingDate": ["2026-02-01", "2025-02-01"],
+                    "reportDate": ["2026-01-31", "2025-01-31"],
+                    "fy": [2026, 2025],
+                    "primaryDocument": ["ex-2026.htm", "ex-2025.htm"],
+                }
+            },
+        }
+        submissions_response.raise_for_status.return_value = None
+
+        filing_response = Mock()
+        filing_response.text = "<html>example 2025 filing</html>"
+        filing_response.raise_for_status.return_value = None
+
+        mock_get.side_effect = [submissions_response, filing_response]
+
+        package = self.fetcher.fetch_10k_filing_package("0000000000", 2025)
+
+        self.assertEqual(package.company, "Example Co")
+        self.assertEqual(package.ticker, "EX")
+        self.assertEqual(package.report_date, "2025-01-31")
+        self.assertTrue(package.primary_doc_url.endswith("/000000000025000001/ex-2025.htm"))
+
+    @patch("credit_research_agent.sec_integration.requests.get")
     def test_fetch_companyfacts_uses_official_endpoint(self, mock_get):
         """Companyfacts fetch uses SEC's structured XBRL facts endpoint."""
         response = Mock(status_code=200)
