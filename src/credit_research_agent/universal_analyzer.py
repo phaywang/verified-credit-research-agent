@@ -301,7 +301,10 @@ class UniversalCreditAnalyzer:
             "requested_metrics": metric_names,
             "direct_xbrl_metrics": sorted(metric_selectors.keys()),
             "calculated_metrics": [],
+            "available_metrics": [],
+            "partial_metrics": [],
             "unavailable_metrics": [],
+            "missing_metrics_by_year": {},
         }
 
         for year in years:
@@ -314,6 +317,23 @@ class UniversalCreditAnalyzer:
                 extracted,
                 metric_names,
             )
+
+        available_by_metric: Dict[str, List[int]] = {}
+        for year, metrics in metrics_by_year.items():
+            for metric in metrics:
+                available_by_metric.setdefault(metric.metric_name, []).append(year)
+
+        self._last_metric_coverage["available_metrics"] = sorted(available_by_metric)
+        self._last_metric_coverage["partial_metrics"] = sorted(
+            metric_name
+            for metric_name, covered_years in available_by_metric.items()
+            if metric_name in metric_names and len(set(covered_years)) < len(years)
+        )
+        self._last_metric_coverage["unavailable_metrics"] = [
+            metric_name
+            for metric_name in metric_names
+            if metric_name not in available_by_metric
+        ]
 
         return metrics_by_year
 
@@ -380,10 +400,13 @@ class UniversalCreditAnalyzer:
                     calculated.append("free_cash_flow")
 
         available = set(metrics)
-        unavailable = self._last_metric_coverage.setdefault("unavailable_metrics", [])
+        missing_for_year = []
         for metric_name in requested_metrics:
-            if metric_name not in available and metric_name not in unavailable:
-                unavailable.append(metric_name)
+            if metric_name not in available:
+                missing_for_year.append(metric_name)
+        if missing_for_year:
+            missing_by_year = self._last_metric_coverage.setdefault("missing_metrics_by_year", {})
+            missing_by_year[str(year)] = missing_for_year
 
         return list(metrics.values())
 

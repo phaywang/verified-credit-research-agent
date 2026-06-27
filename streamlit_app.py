@@ -43,8 +43,16 @@ LIVE_SAMPLE_CASES = {
     "Apple leverage: AAPL 2023-2024": ("AAPL", ["Leverage Analysis"], [2024, 2023]),
     "Tesla leverage: TSLA 2023-2024": ("TSLA", ["Leverage Analysis"], [2024, 2023]),
     "NVIDIA leverage: NVDA 2024-2025": ("NVDA", ["Leverage Analysis"], [2025, 2024]),
-    "Custom": ("Apple", ["Leverage Analysis"], [2024, 2023]),
+    "Custom": ("", ["Leverage Analysis"], [2024, 2023]),
 }
+DEFAULT_LIVE_PRESET = next(iter(LIVE_SAMPLE_CASES))
+CUSTOM_LIVE_PRESET = "Custom"
+LIVE_PRESET_KEY = "live_demo_preset"
+LIVE_APPLIED_PRESET_KEY = "live_applied_demo_preset"
+LIVE_PENDING_PRESET_KEY = "live_pending_demo_preset"
+LIVE_COMPANY_KEY = "live_company_query"
+LIVE_THEMES_KEY = "live_theme_pills"
+LIVE_YEARS_KEY = "live_year_pills"
 
 
 def inject_css() -> None:
@@ -725,11 +733,6 @@ def get_universal_analyzer() -> UniversalCreditAnalyzer:
     return UniversalCreditAnalyzer()
 
 
-def selector_key(prefix: str, label: Any) -> str:
-    safe = "".join(ch.lower() if ch.isalnum() else "_" for ch in str(label))
-    return f"{prefix}_{safe}"
-
-
 def pill_selector(
     *,
     title: str,
@@ -751,11 +754,63 @@ def pill_selector(
             title,
             options,
             selection_mode="multi",
-            default=defaults,
+            default=None if key_prefix in st.session_state else defaults,
             key=key_prefix,
             label_visibility="collapsed",
         )
     return list(selected or [])
+
+
+def ensure_live_form_state() -> None:
+    """Initialize live analysis controls once without overwriting user input."""
+    pending_preset = st.session_state.pop(LIVE_PENDING_PRESET_KEY, None)
+    if pending_preset:
+        st.session_state[LIVE_PRESET_KEY] = pending_preset
+        st.session_state[LIVE_APPLIED_PRESET_KEY] = pending_preset
+    if LIVE_PRESET_KEY not in st.session_state:
+        st.session_state[LIVE_PRESET_KEY] = DEFAULT_LIVE_PRESET
+    if LIVE_COMPANY_KEY not in st.session_state:
+        ticker, themes, years = LIVE_SAMPLE_CASES[DEFAULT_LIVE_PRESET]
+        st.session_state[LIVE_COMPANY_KEY] = ticker
+        st.session_state[LIVE_THEMES_KEY] = themes
+        st.session_state[LIVE_YEARS_KEY] = years
+        st.session_state[LIVE_APPLIED_PRESET_KEY] = DEFAULT_LIVE_PRESET
+
+
+def apply_selected_preset_if_changed() -> None:
+    """Apply preset values only when the preset selector changes."""
+    sample_label = st.session_state.get(LIVE_PRESET_KEY, DEFAULT_LIVE_PRESET)
+    if st.session_state.get(LIVE_APPLIED_PRESET_KEY) == sample_label:
+        return
+    if sample_label == CUSTOM_LIVE_PRESET:
+        st.session_state[LIVE_APPLIED_PRESET_KEY] = sample_label
+        return
+    ticker, themes, years = LIVE_SAMPLE_CASES[sample_label]
+    st.session_state[LIVE_COMPANY_KEY] = ticker
+    st.session_state[LIVE_THEMES_KEY] = themes
+    st.session_state[LIVE_YEARS_KEY] = years
+    st.session_state[LIVE_APPLIED_PRESET_KEY] = sample_label
+
+
+def mark_custom_preset_if_needed(
+    company_query: str,
+    theme_labels: List[str],
+    years: List[int],
+) -> None:
+    """Show Custom when submitted controls no longer match a preset."""
+    normalized_company = company_query.strip().upper()
+    normalized_years = sorted(years)
+    for preset_name, (ticker, themes, preset_years) in LIVE_SAMPLE_CASES.items():
+        if preset_name == CUSTOM_LIVE_PRESET:
+            continue
+        if (
+            normalized_company == ticker.upper()
+            and list(theme_labels) == list(themes)
+            and normalized_years == sorted(preset_years)
+        ):
+            st.session_state[LIVE_PENDING_PRESET_KEY] = preset_name
+            return
+    st.session_state[LIVE_PENDING_PRESET_KEY] = CUSTOM_LIVE_PRESET
 
 
 def render_live_sec_analysis() -> None:
@@ -775,14 +830,18 @@ def render_live_sec_analysis() -> None:
 
     with form_col:
         with st.container(border=True):
+            ensure_live_form_state()
             st.markdown("**Research request**")
-            sample_label = st.selectbox("Load verified demo preset", list(LIVE_SAMPLE_CASES.keys()))
-            sample_ticker, sample_themes, sample_years = LIVE_SAMPLE_CASES[sample_label]
-            preset_key = selector_key("preset", sample_label)
+            st.selectbox(
+                "Load verified demo preset",
+                list(LIVE_SAMPLE_CASES.keys()),
+                key=LIVE_PRESET_KEY,
+            )
+            apply_selected_preset_if_changed()
             with st.form("live_sec_analysis_form"):
                 company_query = st.text_input(
                     "Company or ticker",
-                    value=sample_ticker,
+                    key=LIVE_COMPANY_KEY,
                     help=(
                         "Enter a ticker or company name, such as AAPL, Apple, "
                         "JP Morgan, Google, Microsoft, Ford, or Meta."
@@ -794,16 +853,16 @@ def render_live_sec_analysis() -> None:
                         title="Risk themes",
                         help_text="Select one or more credit risk lenses.",
                         options=list(RISK_THEMES.keys()),
-                        defaults=sample_themes,
-                        key_prefix=f"{preset_key}_theme",
+                        defaults=st.session_state.get(LIVE_THEMES_KEY, ["Leverage Analysis"]),
+                        key_prefix=LIVE_THEMES_KEY,
                     )
                 with selector_cols[1]:
                     years = pill_selector(
                         title="Fiscal years",
                         help_text="Two or more years enable trend analysis.",
                         options=FISCAL_YEAR_OPTIONS,
-                        defaults=sample_years,
-                        key_prefix=f"{preset_key}_year",
+                        defaults=st.session_state.get(LIVE_YEARS_KEY, [2024, 2023]),
+                        key_prefix=LIVE_YEARS_KEY,
                     )
                 include_llm_workpaper = st.checkbox(
                     "Generate detailed LLM stage workpaper",
@@ -897,6 +956,7 @@ def render_live_sec_analysis() -> None:
         "results": results,
         "consolidated_workpaper": consolidated_workpaper,
     }
+    mark_custom_preset_if_needed(company_query, theme_labels, years)
     st.rerun()
 
 
@@ -997,10 +1057,27 @@ def render_live_result(
     unavailable_metrics = coverage.get("unavailable_metrics", [])
     if unavailable_metrics:
         st.warning(
-            "Coverage limitation: the selected theme requested metric(s) that are "
-            f"not available from the current verified SEC companyfacts path: "
+            "Coverage limitation: the selected theme requested metric(s) with no "
+            f"verified SEC companyfacts values in the selected years: "
             f"{', '.join(unavailable_metrics)}."
         )
+    partial_metrics = coverage.get("partial_metrics", [])
+    if partial_metrics:
+        st.info(
+            "Comparability note: some requested metric(s) are available for only "
+            f"part of the selected period: {', '.join(partial_metrics)}."
+        )
+    missing_by_year = coverage.get("missing_metrics_by_year", {})
+    if missing_by_year:
+        missing_rows = [
+            {
+                "fiscal_year": year,
+                "missing_metrics": ", ".join(metrics),
+            }
+            for year, metrics in sorted(missing_by_year.items())
+        ]
+        with st.expander("Metric coverage by fiscal year"):
+            st.dataframe(missing_rows, width="stretch", hide_index=True)
 
     changes = change_rows(result)
     if changes:
