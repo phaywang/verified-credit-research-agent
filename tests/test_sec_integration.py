@@ -118,6 +118,20 @@ class SECCompanyLookupTest(unittest.TestCase):
 
         self.assertIn("Ambiguous", str(ctx.exception))
 
+    def test_resolve_company_query_explains_not_sec_covered_company(self):
+        """Resolver explains when a company is not in SEC ticker metadata."""
+        self.lookup._load_tickers_json = Mock(return_value={
+            "0": {"ticker": "AAPL", "title": "Apple Inc.", "cik_str": 320193},
+        })
+
+        with self.assertRaises(CompanyNotFoundError) as ctx:
+            self.lookup.resolve_company_query("Private Offshore Ltd")
+
+        message = str(ctx.exception)
+        self.assertIn("could not be resolved", message)
+        self.assertIn("not listed in the United States", message)
+        self.assertIn("private", message)
+
     @requires_sec_network
     def test_tickers_json_caching(self):
         """Test that tickers JSON is cached locally."""

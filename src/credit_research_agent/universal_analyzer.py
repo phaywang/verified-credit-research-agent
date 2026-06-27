@@ -18,6 +18,7 @@ from credit_research_agent.sec_integration import (
     MetricValue,
     CompanyNotFoundError,
     FilingNotFoundError,
+    sec_company_not_found_explanation,
 )
 from credit_research_agent.brief_generator import (
     BriefGenerator,
@@ -173,6 +174,12 @@ class UniversalCreditAnalyzer:
         except CompanyNotFoundError as e:
             result.status = "error"
             result.error = str(e)
+            result.brief = self._generate_unresolved_company_brief(
+                ticker,
+                risk_theme,
+                years,
+                str(e),
+            )
             result.trace.append({
                 "step": "lookup_company",
                 "status": "error",
@@ -236,6 +243,45 @@ class UniversalCreditAnalyzer:
     def _fetch_companyfacts_data(self, cik: str) -> Dict[str, Any]:
         """Fetch structured SEC companyfacts for deterministic metric extraction."""
         return self.fetcher.fetch_companyfacts(cik)
+
+    def _generate_unresolved_company_brief(
+        self,
+        query: str,
+        risk_theme: str,
+        years: List[int],
+        error: str,
+    ) -> str:
+        """Generate a professional no-coverage explanation for unresolved companies."""
+        explanation = error or sec_company_not_found_explanation(query)
+        return "\n".join([
+            f"# Company Resolution Notice — {query}",
+            "",
+            "## Status",
+            "",
+            "The system could not start SEC companyfacts analysis because the input did not resolve to a unique SEC EDGAR ticker/CIK.",
+            "",
+            "## Resolution Result",
+            "",
+            f"- Input received: `{query}`",
+            f"- Risk theme requested: `{risk_theme}`",
+            f"- Fiscal years requested: {', '.join(str(year) for year in years)}",
+            "- SEC ticker/CIK: not resolved",
+            "",
+            "## Explanation",
+            "",
+            explanation,
+            "",
+            "## Recommended Next Steps",
+            "",
+            "- Try the U.S. exchange ticker if the company is publicly listed in the United States.",
+            "- Try the full legal registrant name rather than a brand, product, or subsidiary name.",
+            "- If the issuer is non-U.S.-listed, use the relevant local filing source instead of SEC companyfacts.",
+            "- If the company is private, SEC companyfacts analysis is not available unless the company has a filing registrant or public parent.",
+            "",
+            "## Control Note",
+            "",
+            "No credit conclusions or financial metrics were generated because the entity was not verified against SEC EDGAR metadata.",
+        ])
 
     def _extract_metrics(
         self,

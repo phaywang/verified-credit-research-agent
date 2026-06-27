@@ -821,6 +821,8 @@ def render_live_result(result: AnalysisResult, theme_label: str) -> None:
 
     if result.error:
         st.error(result.error)
+        if result.brief:
+            st.info("A resolution notice was generated in the Brief tab. No financial analysis was run.")
 
     changes = change_rows(result)
     if changes:

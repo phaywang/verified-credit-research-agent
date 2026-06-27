@@ -153,11 +153,15 @@ class UniversalAnalyzerTest(unittest.TestCase):
         self.analyzer.lookup.get_cik_by_ticker.side_effect = CompanyNotFoundError(
             "Company not found"
         )
+        self.analyzer.lookup.resolve_company_query.return_value = None
 
         result = self.analyzer.analyze("INVALID", "leverage_analysis")
 
         self.assertEqual(result.status, "error")
         self.assertIsNotNone(result.error)
+        self.assertIn("Company Resolution Notice", result.brief)
+        self.assertIn("SEC ticker/CIK: not resolved", result.brief)
+        self.assertIn("No credit conclusions", result.brief)
         self.assertIn("lookup_company", [s["step"] for s in result.trace])
 
     def test_analyze_partial_failure(self):

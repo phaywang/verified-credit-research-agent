@@ -171,6 +171,18 @@ def _ambiguous_company_message(query: str, matches: List[Dict]) -> str:
     )
 
 
+def sec_company_not_found_explanation(query: str) -> str:
+    """Return a user-facing explanation for unresolved SEC company input."""
+    return (
+        f"'{query}' could not be resolved to a unique SEC EDGAR public-company "
+        "ticker/CIK. This usually means one of four things: the company is not "
+        "listed in the United States, the company is private, the input refers "
+        "to a subsidiary/brand rather than the SEC registrant, or the name is too "
+        "ambiguous to select safely. Try the U.S. ticker, the full legal issuer "
+        "name, or the parent company that files with the SEC."
+    )
+
+
 class SECCompanyLookup:
     """Query SEC EDGAR for company information."""
 
@@ -257,8 +269,7 @@ class SECCompanyLookup:
             raise CompanyNotFoundError(_ambiguous_company_message(query, contains_matches))
 
         raise CompanyNotFoundError(
-            f"Company query '{query}' was not found in SEC EDGAR ticker metadata. "
-            "Try a ticker or a more complete legal company name."
+            sec_company_not_found_explanation(query)
         )
 
     def get_company_info(self, cik: str) -> CompanyInfo:
