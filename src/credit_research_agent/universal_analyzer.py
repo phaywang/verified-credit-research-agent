@@ -24,6 +24,7 @@ from credit_research_agent.brief_generator import (
     MetricResult,
     VerifiedMetricsSet,
 )
+from credit_research_agent.llm_stage_workpaper import generate_stage_workpaper
 from credit_research_agent.task_generator import TaskGenerator
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ class AnalysisResult:
     years: List[int]
     brief: str
     metrics: Dict[int, List[MetricValue]] = field(default_factory=dict)
+    stage_workpaper: List[Dict[str, Any]] = field(default_factory=list)
     trace: List[Dict] = field(default_factory=list)
     status: str = "pending"  # pending, success, partial, error
     error: Optional[str] = None
@@ -60,6 +62,7 @@ class UniversalCreditAnalyzer:
         ticker: str,
         risk_theme: str,
         years: Optional[List[int]] = None,
+        include_llm_workpaper: bool = False,
     ) -> AnalysisResult:
         """Analyze any SEC company end-to-end.
 
@@ -123,7 +126,7 @@ class UniversalCreditAnalyzer:
                 ),
             })
 
-            # Step 4: Generate brief
+            # Step 4: Generate deterministic verified brief
             logger.info("Generating verified brief...")
             result.trace.append({"step": "generate_brief", "status": "starting"})
 
@@ -138,6 +141,29 @@ class UniversalCreditAnalyzer:
                 "status": "success",
                 "brief_length": len(brief),
             })
+
+            # Step 5: Optional detailed LLM stage workpaper.
+            if include_llm_workpaper:
+                logger.info("Generating LLM stage workpaper...")
+                result.trace.append({"step": "generate_llm_stage_workpaper", "status": "starting"})
+                stage_workpaper = generate_stage_workpaper(
+                    company=result.company,
+                    ticker=result.ticker,
+                    risk_theme=risk_theme,
+                    years=years,
+                    metrics_by_year=metrics_by_year,
+                    deterministic_brief=brief,
+                )
+                result.stage_workpaper = [stage.to_dict() for stage in stage_workpaper]
+                result.trace.append({
+                    "step": "generate_llm_stage_workpaper",
+                    "status": "success",
+                    "stages": len(result.stage_workpaper),
+                    "guardrails": [
+                        stage.get("guardrail_status")
+                        for stage in result.stage_workpaper
+                    ],
+                })
 
             result.status = "success"
             logger.info(f"✓ Analysis complete for {ticker}")

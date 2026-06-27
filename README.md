@@ -163,13 +163,16 @@ streamlit run streamlit_app.py
 
 The default UI mode is static artifact mode. It loads files from `examples/m3_full_demo/` and does not require Bedrock credentials or SEC network access.
 
-The left sidebar provides primary module navigation. The **Research Console** module accepts a ticker, risk theme, and fiscal years, then retrieves structured SEC `companyfacts` data for deterministic metric extraction. This mode does not call Bedrock, but it does require network access to `sec.gov`.
+The left sidebar provides primary module navigation. The **Research Console** module accepts a ticker, risk theme, and fiscal years, then retrieves structured SEC `companyfacts` data for deterministic metric extraction. This mode does not call Bedrock by default, but it does require network access to `sec.gov`.
+
+The Research Console also includes an optional **Generate detailed LLM stage workpaper** mode. When enabled, Bedrock generates stage-level analyst notes after deterministic SEC/XBRL extraction for intake/scoping, fact verification review, credit risk interpretation, and reviewer follow-up questions. The LLM workpaper is guarded: financial-number lines are checked against verified facts and unsupported numeric lines are removed before display.
 
 The UI shows:
 
 - Control Room operating dashboard.
 - Why this is not a normal RAG bot.
 - Optional live SEC companyfacts analysis by ticker through the Research Console.
+- Optional guarded LLM stage workpaper for a more detailed analyst-style work product.
 - Final credit research brief.
 - M3 trace metrics and Phase 4 ReAct tool ledger.
 - Numeric guardrail result and semantic critic result.

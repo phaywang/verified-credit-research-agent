@@ -37,7 +37,16 @@ ticker lookup
 -> deterministic credit brief
 ```
 
-This mode does not call Bedrock. It requires live access to `www.sec.gov` and `data.sec.gov`.
+By default, this mode does not call Bedrock. It requires live access to `www.sec.gov` and `data.sec.gov`.
+
+An optional **Generate detailed LLM stage workpaper** checkbox runs a Bedrock-backed analyst narrative after deterministic SEC/XBRL extraction. That optional mode generates stage-level workpaper notes for:
+
+- intake and scoping
+- fact verification review
+- credit risk interpretation
+- reviewer questions and next work
+
+The LLM workpaper is guarded: financial-number lines are checked against verified SEC/XBRL facts, and unsupported numeric lines are removed before display.
 
 ## Live SEC Smoke Check
 
@@ -52,7 +61,7 @@ The default smoke checks AAPL, TSLA, and NVDA leverage analysis and verifies tha
 ## What It Shows
 
 - **Control Room:** operating dashboard, enterprise controls, system boundary, and M3 guardrail snapshot.
-- **Research Console:** ticker/theme/year workflow, saved M5 smoke results, live generated brief, fact register, and trace.
+- **Research Console:** ticker/theme/year workflow, saved M5 smoke results, live generated brief, optional LLM stage workpaper, fact register, and trace.
 - **Workpaper Audit:** final M3 brief, trace metrics, and ReAct tool ledger.
 - **Model Controls:** numeric guardrail and semantic critic review.
 - **System Architecture:** end-to-end flow and LLM/tool boundary.
@@ -73,6 +82,6 @@ The default smoke checks AAPL, TSLA, and NVDA leverage analysis and verifies tha
 
 ## Notes
 
-Live Bedrock mode is not implemented in this UI. The live SEC module is deterministic and uses SEC structured facts rather than the M3 Bedrock ReAct loop.
+Full live Bedrock ReAct mode is not implemented in this UI. The live SEC module remains deterministic by default; the optional Bedrock mode only adds guarded stage-level analyst workpaper notes after verified facts are extracted.
 
 This demo is for engineering and research presentation only. It is not financial advice.

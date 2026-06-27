@@ -733,6 +733,14 @@ def render_live_sec_analysis() -> None:
                     index=list(RISK_THEMES.keys()).index(sample_theme),
                 )
                 year_text = cols[2].text_input("Fiscal years", value=sample_years)
+                include_llm_workpaper = st.checkbox(
+                    "Generate detailed LLM stage workpaper",
+                    value=False,
+                    help=(
+                        "Optional Bedrock mode. The LLM writes stage-level analyst notes "
+                        "after deterministic SEC/XBRL facts are extracted; numeric lines are guarded."
+                    ),
+                )
                 submitted = st.form_submit_button("Run Analysis", type="primary", width="stretch")
 
     with guide_col:
@@ -774,8 +782,16 @@ def render_live_sec_analysis() -> None:
         return
 
     analyzer = get_universal_analyzer()
-    with st.spinner(f"Fetching SEC companyfacts for {ticker}..."):
-        result = analyzer.analyze(ticker, RISK_THEMES[theme_label], years)
+    spinner_text = f"Fetching SEC companyfacts for {ticker}..."
+    if include_llm_workpaper:
+        spinner_text = f"Fetching SEC facts and generating guarded LLM workpaper for {ticker}..."
+    with st.spinner(spinner_text):
+        result = analyzer.analyze(
+            ticker,
+            RISK_THEMES[theme_label],
+            years,
+            include_llm_workpaper=include_llm_workpaper,
+        )
 
     render_live_result(result, theme_label)
 
@@ -803,7 +819,11 @@ def render_live_result(result: AnalysisResult, theme_label: str) -> None:
         st.subheader("Verified change register")
         st.dataframe(changes, width="stretch", hide_index=True)
 
-    result_tabs = st.tabs(["Brief", "Fact Register", "Trace"])
+    tabs = ["Brief", "Fact Register"]
+    if result.stage_workpaper:
+        tabs.append("LLM Stage Workpaper")
+    tabs.append("Trace")
+    result_tabs = st.tabs(tabs)
     with result_tabs[0]:
         if result.brief:
             st.markdown(result.brief)
@@ -815,8 +835,40 @@ def render_live_result(result: AnalysisResult, theme_label: str) -> None:
             st.dataframe(rows, width="stretch", hide_index=True)
         else:
             st.info("No metrics were extracted for the selected years/theme.")
-    with result_tabs[2]:
+    tab_index = 2
+    if result.stage_workpaper:
+        with result_tabs[2]:
+            render_stage_workpaper(result.stage_workpaper)
+        tab_index = 3
+    with result_tabs[tab_index]:
         st.json(result.trace)
+
+
+def render_stage_workpaper(stage_workpaper: List[Dict[str, Any]]) -> None:
+    st.subheader("Detailed LLM stage workpaper")
+    st.caption(
+        "LLM-written analyst notes generated after deterministic SEC/XBRL extraction. "
+        "Financial-number lines are checked against the verified fact set."
+    )
+    summary_rows = [
+        {
+            "stage": item.get("stage"),
+            "status": item.get("status"),
+            "numeric_guardrail": item.get("guardrail_status"),
+            "blocked_lines": len(item.get("blocked_lines", [])),
+        }
+        for item in stage_workpaper
+    ]
+    st.dataframe(summary_rows, width="stretch", hide_index=True)
+    for item in stage_workpaper:
+        with st.expander(item.get("stage", "Stage workpaper"), expanded=True):
+            st.markdown(item.get("analysis", ""))
+            blocked = item.get("blocked_lines", [])
+            if blocked:
+                st.warning(f"{len(blocked)} LLM line(s) removed by numeric guardrail.")
+                with st.expander("Removed lines"):
+                    for line in blocked:
+                        st.write(line)
 
 
 def render_m5_smoke_summary() -> None:
