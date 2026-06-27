@@ -51,15 +51,11 @@ The default smoke checks AAPL, TSLA, and NVDA leverage analysis and verifies tha
 
 ## What It Shows
 
-- Project overview and milestone evolution.
-- Why the system is not a normal RAG bot.
-- Live SEC companyfacts analysis, when network access is available.
-- Final M3 credit research brief.
-- Trace metrics.
-- Phase 4 ReAct tool call timeline.
-- Numeric guardrail result.
-- Semantic critic result.
-- Architecture flow.
+- **Overview:** milestone status, project differentiation, M3 guardrail snapshot.
+- **Live SEC Analysis:** ticker/theme/year workflow, saved M5 smoke results, live generated brief.
+- **M3 Workpaper:** final M3 brief, trace metrics, and ReAct tool timeline.
+- **Guardrails & Critic:** numeric guardrail and semantic critic review.
+- **Architecture:** end-to-end flow and LLM/tool boundary.
 
 ## Expected Demo Metrics
 
