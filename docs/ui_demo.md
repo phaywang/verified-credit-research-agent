@@ -51,11 +51,11 @@ The default smoke checks AAPL, TSLA, and NVDA leverage analysis and verifies tha
 
 ## What It Shows
 
-- **Overview:** milestone status, project differentiation, M3 guardrail snapshot.
-- **Live SEC Analysis:** ticker/theme/year workflow, saved M5 smoke results, live generated brief.
-- **M3 Workpaper:** final M3 brief, trace metrics, and ReAct tool timeline.
-- **Guardrails & Critic:** numeric guardrail and semantic critic review.
-- **Architecture:** end-to-end flow and LLM/tool boundary.
+- **Control Room:** operating dashboard, enterprise controls, system boundary, and M3 guardrail snapshot.
+- **Research Console:** ticker/theme/year workflow, saved M5 smoke results, live generated brief, fact register, and trace.
+- **Workpaper Audit:** final M3 brief, trace metrics, and ReAct tool ledger.
+- **Model Controls:** numeric guardrail and semantic critic review.
+- **System Architecture:** end-to-end flow and LLM/tool boundary.
 
 ## Expected Demo Metrics
 

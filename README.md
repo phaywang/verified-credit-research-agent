@@ -50,7 +50,7 @@ It is not a generic SEC chatbot and not an investment recommendation engine. The
 - Structured SEC `companyfacts` retrieval for deterministic XBRL facts.
 - Universal analyzer for ticker/theme/year numeric analysis.
 - Verified change tables and metric-level analyst notes.
-- Streamlit Live SEC Analysis tab.
+- Streamlit Research Console for live SEC companyfacts analysis.
 - Multi-company live smoke validation for AAPL, TSLA, and NVDA.
 
 ## M3 Demo Results
@@ -163,19 +163,17 @@ streamlit run streamlit_app.py
 
 The default UI mode is static artifact mode. It loads files from `examples/m3_full_demo/` and does not require Bedrock credentials or SEC network access.
 
-The **Live SEC Analysis** tab accepts a ticker, risk theme, and fiscal years, then retrieves structured SEC `companyfacts` data for deterministic metric extraction. This mode does not call Bedrock, but it does require network access to `sec.gov`.
+The **Research Console** tab accepts a ticker, risk theme, and fiscal years, then retrieves structured SEC `companyfacts` data for deterministic metric extraction. This mode does not call Bedrock, but it does require network access to `sec.gov`.
 
 The UI shows:
 
-- Project overview and milestone evolution.
+- Control Room operating dashboard.
 - Why this is not a normal RAG bot.
-- Optional live SEC companyfacts analysis by ticker.
+- Optional live SEC companyfacts analysis by ticker through the Research Console.
 - Final credit research brief.
-- M3 trace metrics.
-- Phase 4 ReAct tool call timeline.
-- Numeric guardrail result.
-- Semantic critic result.
-- Architecture flow.
+- M3 trace metrics and Phase 4 ReAct tool ledger.
+- Numeric guardrail result and semantic critic result.
+- System architecture flow.
 
 See [docs/ui_demo.md](docs/ui_demo.md) for UI details.
 

@@ -45,58 +45,92 @@ LIVE_SAMPLE_CASES = {
 
 
 def inject_css() -> None:
-    """Apply restrained product styling."""
+    """Apply restrained enterprise product styling."""
     st.markdown(
         """
 <style>
   :root {
-    --ink: #1f2430;
+    --ink: #172033;
     --muted: #667085;
     --line: #e5e7eb;
-    --soft: #f6f8fb;
+    --soft: #f7f8fa;
+    --soft-2: #eef2f6;
     --panel: #ffffff;
-    --accent: #bf2f45;
-    --accent-soft: #fff1f3;
+    --accent: #9f1d35;
+    --accent-soft: #fff3f5;
     --good: #0f766e;
-    --warn: #b45309;
+    --warn: #a15c07;
+    --bad: #b42318;
+  }
+  .stApp {
+    background: #f5f6f8;
   }
   .block-container {
-    padding-top: 2.4rem;
-    max-width: 1320px;
+    padding-top: 1.1rem;
+    padding-bottom: 3rem;
+    max-width: 1440px;
   }
   div[data-testid="stToolbar"] {
     visibility: hidden;
     height: 0;
     position: fixed;
   }
+  section[data-testid="stSidebar"] {
+    background: #111827;
+    border-right: 1px solid #1f2937;
+  }
+  section[data-testid="stSidebar"] * {
+    color: #e5e7eb;
+  }
+  section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+  section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] li {
+    color: #cbd5e1;
+    font-size: 0.86rem;
+  }
+  section[data-testid="stSidebar"] hr {
+    border-color: #374151;
+  }
   h1, h2, h3 {
     letter-spacing: 0;
   }
-  .hero {
+  h1 {
+    font-size: 1.72rem;
+  }
+  h2 {
+    font-size: 1.28rem;
+  }
+  h3 {
+    font-size: 1.03rem;
+  }
+  .topbar {
     border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 26px 28px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    margin-bottom: 18px;
+    background: #ffffff;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
   }
-  .eyebrow {
-    color: var(--accent);
-    font-size: 0.78rem;
+  .product-label {
+    color: #475467;
+    font-size: 0.74rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 6px;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
   }
-  .hero h1 {
+  .topbar h1 {
     margin: 0 0 8px 0;
     color: var(--ink);
-    font-size: 2.35rem;
-    line-height: 1.08;
+    font-size: 1.62rem;
+    line-height: 1.2;
   }
-  .hero p {
+  .topbar p {
     color: var(--muted);
-    max-width: 920px;
-    margin-bottom: 16px;
+    margin: 0;
+    font-size: 0.9rem;
   }
   .badge-row {
     display: flex;
@@ -106,61 +140,81 @@ def inject_css() -> None:
   .badge {
     border: 1px solid var(--line);
     background: #ffffff;
-    border-radius: 999px;
-    padding: 5px 10px;
+    border-radius: 6px;
+    padding: 4px 8px;
     color: #344054;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge.good {
+    color: var(--good);
+    border-color: #99d5cc;
+    background: #ecfdf9;
+  }
+  .badge.warn {
+    color: var(--warn);
+    border-color: #f4c790;
+    background: #fffbeb;
+  }
+  .badge.dark {
+    color: #dbeafe;
+    border-color: #334155;
+    background: #1f2937;
   }
   .status-card {
     border: 1px solid var(--line);
     background: var(--panel);
     border-radius: 8px;
-    padding: 16px 16px 14px;
-    min-height: 112px;
+    padding: 12px 13px 11px;
+    min-height: 88px;
   }
   .status-card .label {
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
   .status-card .value {
     color: var(--ink);
-    font-size: 1.55rem;
+    font-size: 1.28rem;
     font-weight: 760;
     line-height: 1.15;
     overflow-wrap: anywhere;
   }
   .status-card .note {
     color: var(--muted);
-    font-size: 0.82rem;
-    margin-top: 8px;
+    font-size: 0.78rem;
+    margin-top: 6px;
   }
   .panel {
     border: 1px solid var(--line);
     border-radius: 8px;
     background: #ffffff;
-    padding: 18px;
+    padding: 15px;
     margin-bottom: 16px;
   }
   .panel h3 {
     margin-top: 0;
   }
   .section-kicker {
-    color: var(--accent);
-    font-size: 0.78rem;
+    color: #475467;
+    font-size: 0.72rem;
     text-transform: uppercase;
     font-weight: 750;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
+    letter-spacing: 0.08em;
   }
   .callout {
-    border-left: 4px solid var(--accent);
-    background: var(--accent-soft);
-    padding: 13px 15px;
+    border-left: 3px solid var(--accent);
+    background: #ffffff;
+    border-top: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 11px 13px;
     border-radius: 6px;
-    color: #5c1f2a;
+    color: #344054;
   }
   .small-muted {
     color: var(--muted);
@@ -169,9 +223,9 @@ def inject_css() -> None:
   .workflow-step {
     border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 12px;
+    padding: 11px;
     background: #ffffff;
-    min-height: 88px;
+    min-height: 78px;
   }
   .workflow-step strong {
     display: block;
@@ -181,7 +235,7 @@ def inject_css() -> None:
   div[data-testid="stMetric"] {
     border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 10px 12px;
     background: #ffffff;
   }
   div[data-testid="stMetricLabel"] p {
@@ -189,7 +243,7 @@ def inject_css() -> None:
     font-weight: 650;
   }
   .stTabs [data-baseweb="tab-list"] {
-    gap: 14px;
+    gap: 18px;
     border-bottom: 1px solid var(--line);
   }
   .stTabs [data-baseweb="tab"] {
@@ -199,6 +253,52 @@ def inject_css() -> None:
   .stDataFrame {
     border: 1px solid var(--line);
     border-radius: 8px;
+  }
+  .system-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.88rem;
+  }
+  .system-table th {
+    text-align: left;
+    color: #475467;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--line);
+    padding: 9px 10px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+  .system-table td {
+    color: #344054;
+    border-bottom: 1px solid #eef2f6;
+    padding: 9px 10px;
+    vertical-align: top;
+  }
+  .system-table tr:last-child td {
+    border-bottom: 0;
+  }
+  .sidebar-title {
+    color: #ffffff;
+    font-size: 1.05rem;
+    font-weight: 750;
+    margin-bottom: 4px;
+  }
+  .sidebar-muted {
+    color: #cbd5e1;
+    font-size: 0.82rem;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 760px) {
+    .topbar {
+      display: block;
+    }
+    .topbar h1 {
+      font-size: 1.35rem;
+    }
   }
 </style>
 """,
@@ -253,27 +353,53 @@ def status_card(label: str, value: Any, note: str = "") -> None:
     )
 
 
-def render_hero() -> None:
+def render_topbar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> None:
     st.markdown(
-        """
-<div class="hero">
-  <div class="eyebrow">Verified Credit Research Agent</div>
-  <h1>Auditable SEC credit research with LLM reasoning and deterministic controls</h1>
-  <p>
-    A portfolio-grade credit research harness combining agentic retrieval,
-    Bedrock ReAct tool calling, SEC companyfacts analysis, numeric guardrails,
-    and workpaper-style traces.
-  </p>
+        f"""
+<div class="topbar">
+  <div>
+    <div class="product-label">Verified Credit Research Agent</div>
+    <h1>Credit Research Workbench</h1>
+    <p>SEC filing research, deterministic financial verification, and auditable workpaper controls.</p>
+  </div>
   <div class="badge-row">
-    <span class="badge">M3 ReAct agent</span>
-    <span class="badge">M5 live SEC companyfacts</span>
-    <span class="badge">Deterministic numeric verification</span>
-    <span class="badge">Auditable workpapers</span>
+    <span class="badge good">Guardrail: {final_metrics.get("final_answer_numeric_guardrail", "n/a")}</span>
+    <span class="badge">ReAct calls: {final_metrics.get("phase4_tool_call_count", "n/a")}</span>
+    <span class="badge">Blocked claims: {guardrail.get("blocked_count", "n/a")}</span>
+    <span class="badge">SEC companyfacts</span>
   </div>
 </div>
 """,
         unsafe_allow_html=True,
     )
+
+
+def render_sidebar(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> None:
+    with st.sidebar:
+        st.markdown(
+            """
+<div class="sidebar-title">Research Operations</div>
+<div class="sidebar-muted">Demo environment for analyst review and interview walkthroughs.</div>
+""",
+            unsafe_allow_html=True,
+        )
+        st.markdown("---")
+        st.markdown("**Workspace**")
+        st.markdown("- Live SEC companyfacts mode")
+        st.markdown("- Frozen M3 ReAct workpaper")
+        st.markdown("- Guardrail and critic audit")
+        st.markdown("---")
+        st.markdown("**Control Status**")
+        st.markdown(f"- Numeric guardrail: `{final_metrics.get('final_answer_numeric_guardrail', 'n/a')}`")
+        st.markdown(f"- Blocked claims: `{guardrail.get('blocked_count', 'n/a')}`")
+        st.markdown(f"- Semantic critic: `{final_metrics.get('phase5_semantic_approved', 'n/a')}`")
+        st.markdown(f"- Tool calls: `{final_metrics.get('phase4_tool_call_count', 'n/a')}`")
+        st.markdown("---")
+        st.markdown("**Boundary**")
+        st.markdown(
+            "LLM stages handle planning, query rewrite, synthesis, and semantic review. "
+            "Python tools execute retrieval, calculations, verification, guardrails, and trace persistence."
+        )
 
 
 def render_metric_row(metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> None:
@@ -301,7 +427,7 @@ def render_tool_timeline(events: Iterable[Dict[str, Any]]) -> None:
                 "status": "completed",
             }
         )
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.dataframe(rows, width="stretch", hide_index=True)
 
 
 def metric_rows(result: AnalysisResult) -> List[Dict[str, Any]]:
@@ -371,22 +497,23 @@ def parse_years(year_text: str) -> List[int]:
 
 
 def render_live_sec_analysis() -> None:
-    st.markdown('<div class="section-kicker">Live deterministic mode</div>', unsafe_allow_html=True)
-    st.subheader("SEC companyfacts analysis")
+    st.markdown('<div class="section-kicker">Research console</div>', unsafe_allow_html=True)
+    st.subheader("Live SEC companyfacts analysis")
     st.markdown(
         """
 <div class="callout">
-  This workflow uses SEC structured companyfacts for verified numeric facts.
-  It does not call Bedrock, and it does not rely on local filing fixtures.
+  Read-only deterministic workflow. The console retrieves SEC structured facts,
+  maps XBRL concepts, calculates verified changes, and writes no local run artifacts.
 </div>
 """,
         unsafe_allow_html=True,
     )
 
-    form_col, guide_col = st.columns([1.1, 0.9], gap="large")
+    form_col, guide_col = st.columns([1.05, 0.95], gap="large")
 
     with form_col:
         with st.container(border=True):
+            st.markdown("**Research request**")
             sample_label = st.selectbox("Sample case", list(LIVE_SAMPLE_CASES.keys()))
             sample_ticker, sample_theme, sample_years = LIVE_SAMPLE_CASES[sample_label]
             with st.form("live_sec_analysis_form"):
@@ -398,22 +525,22 @@ def render_live_sec_analysis() -> None:
                     index=list(RISK_THEMES.keys()).index(sample_theme),
                 )
                 year_text = cols[2].text_input("Fiscal years", value=sample_years)
-                submitted = st.form_submit_button("Run live SEC analysis", type="primary", use_container_width=True)
+                submitted = st.form_submit_button("Run Analysis", type="primary", width="stretch")
 
     with guide_col:
         st.markdown(
             """
 <div class="panel">
-  <h3>What this proves</h3>
+  <h3>Execution controls</h3>
   <p class="small-muted">
-    The app can retrieve fresh SEC structured facts, map XBRL concepts by metric,
-    calculate verified changes, and generate a concise credit brief without
-    allowing the LLM to invent numbers.
+    Live mode is deterministic and separate from the Bedrock ReAct workpaper.
+    It uses SEC companyfacts and configured concept mappings, then exposes the
+    generated brief, verified facts, and trace for analyst review.
   </p>
   <div class="badge-row">
-    <span class="badge">ticker lookup</span>
-    <span class="badge">companyfacts</span>
-    <span class="badge">verified changes</span>
+    <span class="badge">read-only</span>
+    <span class="badge">SEC companyfacts</span>
+    <span class="badge">verified deltas</span>
   </div>
 </div>
 """,
@@ -464,10 +591,10 @@ def render_live_result(result: AnalysisResult, theme_label: str) -> None:
 
     changes = change_rows(result)
     if changes:
-        st.subheader("Verified Changes")
-        st.dataframe(changes, use_container_width=True, hide_index=True)
+        st.subheader("Verified change register")
+        st.dataframe(changes, width="stretch", hide_index=True)
 
-    result_tabs = st.tabs(["Credit Brief", "Verified Facts", "Trace"])
+    result_tabs = st.tabs(["Brief", "Fact Register", "Trace"])
     with result_tabs[0]:
         if result.brief:
             st.markdown(result.brief)
@@ -476,7 +603,7 @@ def render_live_result(result: AnalysisResult, theme_label: str) -> None:
     with result_tabs[1]:
         rows = metric_rows(result)
         if rows:
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(rows, width="stretch", hide_index=True)
         else:
             st.info("No metrics were extracted for the selected years/theme.")
     with result_tabs[2]:
@@ -484,7 +611,7 @@ def render_live_result(result: AnalysisResult, theme_label: str) -> None:
 
 
 def render_m5_smoke_summary() -> None:
-    st.subheader("Latest M5 live smoke")
+    st.subheader("Validation monitor")
     if not M5_SMOKE_PATH.exists():
         st.info("No saved M5 smoke artifact found yet.")
         return
@@ -507,65 +634,97 @@ def render_m5_smoke_summary() -> None:
         for item in smoke.get("summaries", [])
     ]
     if rows:
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width="stretch", hide_index=True)
 
 
 def render_overview(final_metrics: Dict[str, Any], guardrail: Dict[str, Any]) -> None:
-    st.markdown('<div class="section-kicker">Portfolio project status</div>', unsafe_allow_html=True)
-    st.subheader("Narrow, complete, auditable credit research agent")
+    st.markdown('<div class="section-kicker">Control room</div>', unsafe_allow_html=True)
+    st.subheader("Credit research operating dashboard")
 
     cols = st.columns(4)
     with cols[0]:
-        status_card("Milestones", "M1-M5", "retrieval, verification, ReAct, UI, SEC")
+        status_card("Live SEC mode", "Ready", "companyfacts path")
     with cols[1]:
-        status_card("M3 ReAct calls", final_metrics.get("phase4_tool_call_count", "n/a"), "real Bedrock demo")
+        status_card("M3 ReAct calls", final_metrics.get("phase4_tool_call_count", "n/a"), "audited tool chain")
     with cols[2]:
         status_card("Final guardrail", final_metrics.get("final_answer_numeric_guardrail", "n/a"), "unsupported numbers blocked")
     with cols[3]:
-        status_card("M5 smoke", "pass", "AAPL, TSLA, NVDA")
+        status_card("Smoke validation", "Pass", "AAPL, TSLA, NVDA")
 
-    st.markdown("### Why this is not a normal RAG bot")
+    st.markdown("### Operating model")
     st.markdown(
         """
-The system does more than retrieve passages and summarize them. It plans a credit
-research workflow, retrieves SEC evidence, rewrites weak queries, verifies numeric
-claims with deterministic tools, blocks unsupported financial numbers, records a
-workpaper trace, and now adds a live SEC companyfacts path for reusable ticker
-analysis.
-"""
+<table class="system-table">
+  <tr><th>Capability</th><th>Enterprise control</th><th>Current evidence</th></tr>
+  <tr>
+    <td>Agentic research workflow</td>
+    <td>LLM plans, rewrites queries, calls approved tools, and records decision summaries.</td>
+    <td>M3 Bedrock ReAct run with 9 deterministic tool calls.</td>
+  </tr>
+  <tr>
+    <td>Financial number discipline</td>
+    <td>Numeric claims require deterministic verification or are blocked before final output.</td>
+    <td>Phase 2 guardrail blocked an unsupported draft, repair passed final guardrail.</td>
+  </tr>
+  <tr>
+    <td>Live structured data path</td>
+    <td>SEC companyfacts are retrieved and mapped through configured XBRL concepts.</td>
+    <td>M5 smoke passed for AAPL, TSLA, and NVDA.</td>
+  </tr>
+  <tr>
+    <td>Auditability</td>
+    <td>Final answer, tool trace, critic report, and guardrail result are inspectable artifacts.</td>
+    <td>Committed M3 workpaper package loaded from examples/m3_full_demo.</td>
+  </tr>
+</table>
+""",
+        unsafe_allow_html=True,
     )
 
-    st.markdown("### Milestone map")
-    steps = st.columns(5)
-    milestone_text = [
-        ("M1", "Agentic retrieval loop", "hybrid search, rerank, rewrite"),
-        ("M2", "Numeric verification", "XBRL-first debt facts, critic"),
-        ("M3", "LLM ReAct agent", "Bedrock tools and guardrails"),
-        ("M4", "Demo and MCP", "Streamlit and read-only tools"),
-        ("M5", "Live SEC facts", "universal companyfacts analysis"),
-    ]
-    for column, (title, headline, detail) in zip(steps, milestone_text):
-        with column:
-            st.markdown(
-                f"""
-<div class="workflow-step">
-  <strong>{title}: {headline}</strong>
-  <span class="small-muted">{detail}</span>
+    st.markdown("### Why this is not a normal RAG bot")
+    left, right = st.columns([1.1, 0.9], gap="large")
+    with left:
+        st.markdown(
+            """
+<div class="panel">
+  <h3>Workflow distinction</h3>
+  <p class="small-muted">
+    Ordinary RAG retrieves text and summarizes it. This system separates LLM
+    judgment from financial controls: the LLM plans and synthesizes, while
+    deterministic tools execute retrieval, verification, calculations, guardrails,
+    and trace persistence.
+  </p>
 </div>
 """,
-                unsafe_allow_html=True,
-            )
+            unsafe_allow_html=True,
+        )
+    with right:
+        st.markdown(
+            """
+<div class="panel">
+  <h3>Analyst-facing controls</h3>
+  <p class="small-muted">
+    The workbench exposes the brief, evidence path, tool timeline, blocked claims,
+    semantic critic decision, and live SEC fact register so reviewers can inspect
+    how the answer was produced.
+  </p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
 
     st.markdown("### M3 guardrail snapshot")
     render_metric_row(final_metrics, guardrail)
 
 
 def render_workpaper(final_answer: str, trace_log: Dict[str, Any], tool_trace: Dict[str, Any]) -> None:
+    st.markdown('<div class="section-kicker">Run audit</div>', unsafe_allow_html=True)
+    st.subheader("Frozen M3 workpaper package")
     brief_tab, trace_tab, tools_tab = st.tabs(["Final Brief", "Trace Metrics", "Tool Timeline"])
     with brief_tab:
         st.markdown(final_answer)
     with trace_tab:
-        st.subheader("M3 workpaper trace")
+        st.subheader("Control metrics")
         final_metrics = trace_log.get("final_metrics", {})
         cols = st.columns(4)
         cols[0].metric("Loop phase", "M3")
@@ -575,7 +734,7 @@ def render_workpaper(final_answer: str, trace_log: Dict[str, Any], tool_trace: D
         with st.expander("Trace JSON"):
             st.json(trace_log)
     with tools_tab:
-        st.subheader("Phase 4 ReAct tool timeline")
+        st.subheader("Phase 4 ReAct tool ledger")
         st.caption(f"Tool call count: {tool_trace.get('tool_call_count', 'n/a')}")
         render_tool_timeline(tool_events(tool_trace))
         with st.expander("Raw tool trace JSON"):
@@ -583,6 +742,8 @@ def render_workpaper(final_answer: str, trace_log: Dict[str, Any], tool_trace: D
 
 
 def render_guardrails(guardrail: Dict[str, Any], semantic_critic: Dict[str, Any]) -> None:
+    st.markdown('<div class="section-kicker">Model controls</div>', unsafe_allow_html=True)
+    st.subheader("Numeric and semantic review")
     left, right = st.columns(2, gap="large")
     with left:
         st.subheader("Numeric guardrail")
@@ -608,6 +769,7 @@ def render_guardrails(guardrail: Dict[str, Any], semantic_critic: Dict[str, Any]
 
 
 def render_architecture() -> None:
+    st.markdown('<div class="section-kicker">System design</div>', unsafe_allow_html=True)
     st.subheader("Architecture flow")
     st.code(ARCHITECTURE_FLOW, language="text")
     st.markdown(
@@ -625,12 +787,11 @@ agent.
 
 def main() -> None:
     st.set_page_config(
-        page_title="Verified Credit Research Agent",
+        page_title="Credit Research Workbench",
         page_icon=None,
         layout="wide",
     )
     inject_css()
-    render_hero()
 
     if not artifact_available():
         st.error(f"Static demo artifacts were not found at {ARTIFACT_DIR}.")
@@ -643,13 +804,16 @@ def main() -> None:
     semantic_critic = read_json("phase5_semantic_critic.json")
     final_metrics = trace_log.get("final_metrics", {})
 
+    render_sidebar(final_metrics, guardrail)
+    render_topbar(final_metrics, guardrail)
+
     overview, live_sec, workpaper, guardrails, architecture = st.tabs(
         [
-            "Overview",
-            "Live SEC Analysis",
-            "M3 Workpaper",
-            "Guardrails & Critic",
-            "Architecture",
+            "Control Room",
+            "Research Console",
+            "Workpaper Audit",
+            "Model Controls",
+            "System Architecture",
         ]
     )
 
