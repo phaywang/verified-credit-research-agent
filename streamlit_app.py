@@ -66,9 +66,19 @@ def inject_css() -> None:
     background: #f5f6f8;
   }
   .block-container {
-    padding-top: 1.1rem;
+    padding-top: 1.45rem;
     padding-bottom: 3rem;
     max-width: 1440px;
+  }
+  header[data-testid="stHeader"] {
+    background: transparent;
+    height: 0;
+    min-height: 0;
+    pointer-events: none;
+  }
+  header[data-testid="stHeader"] > div {
+    height: 0;
+    min-height: 0;
   }
   div[data-testid="stToolbar"] {
     visibility: hidden;
